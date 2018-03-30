@@ -11,7 +11,7 @@ import java.util.function.Consumer;
 @Component
 public class StrategyDumb implements Strategy {
     @Override
-    public void prepare(MapInfo mapInfo, Consumer<Move> output) {
+    public void prepare(GlobalInfo mapInfo, Consumer<Move> output) {
 
     }
 

@@ -7,7 +7,7 @@ import java.util.function.Consumer;
  *
  */
 public interface Strategy {
-    void prepare(MapInfo mapInfo, Consumer<Move> output);
+    void prepare(GlobalInfo mapInfo, Consumer<Move> output);
 
     void apply(Consumer<Move> output);
 }

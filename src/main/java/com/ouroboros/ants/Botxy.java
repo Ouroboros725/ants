@@ -32,7 +32,7 @@ public class Botxy implements Bot {
 
             switch (input) {
                 case ready:
-                    MapInfo mapInfo = new MapInfo(states);
+                    GlobalInfo mapInfo = new GlobalInfo(states);
                     strategy.prepare(mapInfo, comm::move);
                     break;
                 case go:
