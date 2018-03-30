@@ -2,6 +2,8 @@ package com.ouroboros.ants;
 
 import org.springframework.stereotype.Component;
 
+import java.util.function.Consumer;
+
 /**
  * Created by zhanxies on 3/30/2018.
  *
@@ -9,7 +11,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class StrategyDumb implements Strategy {
     @Override
-    public void execute() {
+    public void prepare(MapInfo mapInfo, Consumer<Move> output) {
+
+    }
+
+    @Override
+    public void apply(Consumer<Move> output) {
 
     }
 }

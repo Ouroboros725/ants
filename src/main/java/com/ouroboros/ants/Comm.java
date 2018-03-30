@@ -8,9 +8,9 @@ import java.util.List;
  */
 public interface Comm {
 
-    List<String> input();
+    Input update(List<String> states);
 
-    void output(List<String> output);
+    void finish();
 
-    void stageOutput(String output);
+    void move(Move move);
 }

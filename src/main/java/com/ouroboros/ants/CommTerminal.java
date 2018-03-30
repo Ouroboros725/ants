@@ -1,7 +1,10 @@
 package com.ouroboros.ants;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.util.List;
 
 /**
@@ -10,18 +13,56 @@ import java.util.List;
  */
 @Component
 public class CommTerminal implements Comm {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(CommTerminal.class);
+
     @Override
-    public List<String> input() {
+    public Input update(List<String> states) {
+        StringBuilder line = new StringBuilder();
+        int c;
+        try {
+            while ((c = System.in.read()) >= 0) {
+                switch (c) {
+                    case '\n':
+                    case '\r':
+                        if (line.length() > 0) {
+                            String fullLine = line.toString();
+                            switch (fullLine) {
+                                case Input.readyStr:
+                                    return Input.ready;
+                                case Input.goStr:
+                                    return Input.go;
+                                default:
+                                    states.add(fullLine);
+                            }
+                            line = new StringBuilder();
+                        }
+                        break;
+                    default:
+                        line.append((char)c);
+                        break;
+                }
+            }
+            return Input.end;
+
+        } catch (IOException e) {
+            LOGGER.error("failed to read input with exception", e);
+        }
+
+        LOGGER.error("failed to read input, input never ends");
+
         return null;
     }
 
     @Override
-    public void output(List<String> output) {
-
+    public void finish() {
+        System.out.println("go");
+        System.out.flush();
     }
 
     @Override
-    public void stageOutput(String output) {
-
+    public void move(Move move) {
+        System.out.println("o " + move.y + " " + move.x + " " + move.d);
+        System.out.flush();
     }
 }
