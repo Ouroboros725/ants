@@ -23,6 +23,9 @@ public class Botxy implements Bot {
     @Autowired
     Comm comm;
 
+    @Autowired
+    GameStates gameStates;
+
     @Override
     public void run() {
         Input input;
@@ -32,18 +35,17 @@ public class Botxy implements Bot {
 
             switch (input) {
                 case ready:
-                    GlobalInfo mapInfo = new GlobalInfo(states);
-                    strategy.prepare(mapInfo, comm::move);
+                    InfoMap mapInfo = new InfoMap(states);
+                    strategy.prepare(mapInfo, comm::move, comm::finish, gameStates);
                     break;
                 case go:
-                    strategy.apply(comm::move);
+                    InfoTurn turnInfo = new InfoTurn(states, gameStates);
+                    strategy.apply(turnInfo, comm::move, comm::finish, gameStates);
                     break;
                 default:
                     LOGGER.debug("end of game");
                     break;
             }
-
-            comm.finish();
         } while (input != Input.end);
 
         System.out.println("123");

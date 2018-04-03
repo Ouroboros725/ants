@@ -9,9 +9,9 @@ import java.util.List;
  * Created by zhanxies on 3/30/2018.
  *
  */
-public class GlobalInfo {
+public class InfoMap {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalInfo.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(InfoMap.class);
 
     private static final String colsStr = "cols";
     private static final String rowsStr = "rows";
@@ -35,7 +35,7 @@ public class GlobalInfo {
     int player_seed;
     int players;
 
-    GlobalInfo(List<String> info) {
+    InfoMap(List<String> info) {
         try {
             for (String line : info) {
                 LOGGER.debug("received map info {0}", line);
@@ -83,4 +83,6 @@ public class GlobalInfo {
             LOGGER.error("failed to process map info", ex);
         }
     }
+
+
 }
