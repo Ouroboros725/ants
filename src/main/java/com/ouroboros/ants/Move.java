@@ -14,4 +14,9 @@ public class Move {
         this.y = y;
         this.d = d;
     }
+
+    @Override
+    public String toString() {
+        return "x:" + x + ",y:" + y + ",d:" + d;
+    }
 }

@@ -40,7 +40,12 @@ public class Botxy implements Bot {
                     break;
                 case go:
                     InfoTurn turnInfo = new InfoTurn(states, gameStates);
-                    strategy.apply(turnInfo, comm::move, comm::finish, gameStates);
+                    if (!turnInfo.gameEnd) {
+                        strategy.apply(turnInfo, comm::move, comm::finish, gameStates);
+                    } else {
+                        input = Input.end;
+                        LOGGER.debug("end of game");
+                    }
                     break;
                 default:
                     LOGGER.debug("end of game");
@@ -48,7 +53,5 @@ public class Botxy implements Bot {
             }
         } while (input != Input.end);
 
-        System.out.println("123");
-        LOGGER.info("123");
     }
 }

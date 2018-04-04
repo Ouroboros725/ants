@@ -14,7 +14,7 @@ import java.util.List;
 @Component
 public class CommTerminal implements Comm {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CommTerminal.class);
+//    private static final Logger LOGGER = LoggerFactory.getLogger(CommTerminal.class);
 
     @Override
     public Input update(List<String> states) {
@@ -27,6 +27,7 @@ public class CommTerminal implements Comm {
                     case '\r':
                         if (line.length() > 0) {
                             String fullLine = line.toString();
+//                            LOGGER.debug("input {}", fullLine);
                             switch (fullLine) {
                                 case Input.readyStr:
                                     return Input.ready;
@@ -46,22 +47,26 @@ public class CommTerminal implements Comm {
             return Input.end;
 
         } catch (IOException e) {
-            LOGGER.error("failed to read input with exception", e);
+//           LOGGER.error("failed to read input with exception", e);
         }
 
-        LOGGER.error("failed to read input, input never ends");
+//       LOGGER.error("failed to read input, input never ends");
 
         return null;
     }
 
     @Override
     public void finish() {
+//        LOGGER.debug("output turn");
+
         System.out.println("go");
         System.out.flush();
     }
 
     @Override
     public void move(Move move) {
+//        LOGGER.debug("output move {}", move);
+
         System.out.println("o " + move.y + " " + move.x + " " + move.d);
         System.out.flush();
     }

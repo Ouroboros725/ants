@@ -20,11 +20,12 @@ public class InfoTurn {
     List<TilePlayer> liveAnts = new ArrayList<>();
     List<TilePlayer> deadAnts = new ArrayList<>();
 
+    boolean gameEnd;
 
     InfoTurn(List<String> info, GameStates gameStates) {
         try {
             for (String line : info) {
-                LOGGER.debug("received map info {0}", line);
+                LOGGER.debug("received map info {}", line);
 
                 String tokens[] = line.split(" ");
                 if (tokens.length > 2) {
@@ -48,11 +49,19 @@ public class InfoTurn {
                             deadAnts.add(new TilePlayer(gameStates.tiles[x][y], Integer.parseInt(tokens[3])));
                             break;
                         default:
-                            LOGGER.debug("unrecognized turn info {0}", line);
+                            LOGGER.debug("unrecognized turn info {}", line);
                             break;
                     }
+                } else if (tokens.length == 1 && "end".equals(tokens[0])) {
+                    gameEnd = true;
+                    break;
                 }
             }
+
+            if (gameEnd) {
+                info.forEach(LOGGER::info);
+            }
+
         } catch (NumberFormatException ex) {
             LOGGER.error("failed to process turn info", ex);
         }

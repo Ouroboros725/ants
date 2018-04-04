@@ -38,7 +38,7 @@ public class InfoMap {
     InfoMap(List<String> info) {
         try {
             for (String line : info) {
-                LOGGER.debug("received map info {0}", line);
+                LOGGER.debug("received map info {}", line);
 
                 String tokens[] = line.split(" ");
                 String field = tokens[0].toLowerCase();
@@ -75,7 +75,7 @@ public class InfoMap {
                         this.players = Integer.parseInt(tokens[1]);
                         break;
                     default:
-                        LOGGER.debug("unrecognized map info {0}", line);
+                        LOGGER.debug("unrecognized map info {}", line);
                         break;
                 }
             }
