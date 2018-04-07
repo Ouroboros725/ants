@@ -14,7 +14,7 @@ import java.util.List;
 @Component
 public class CommTerminal implements Comm {
 
-//    private static final Logger LOGGER = LoggerFactory.getLogger(CommTerminal.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CommTerminal.class);
 
     @Override
     public Input update(List<String> states) {
@@ -57,7 +57,7 @@ public class CommTerminal implements Comm {
 
     @Override
     public void finish() {
-//        LOGGER.debug("output turn");
+        LOGGER.debug("output turn");
 
         System.out.println("go");
         System.out.flush();
@@ -65,7 +65,7 @@ public class CommTerminal implements Comm {
 
     @Override
     public void move(Move move) {
-//        LOGGER.debug("output move {}", move);
+        LOGGER.debug("output move {}", move);
 
         System.out.println("o " + move.y + " " + move.x + " " + move.d);
         System.out.flush();

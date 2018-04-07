@@ -25,7 +25,9 @@ public abstract class StrategyAbstract implements Strategy {
 
     @Override
     public void apply(InfoTurn turnInfo, Consumer<Move> output, Runnable finish, GameStates gameStates) {
-        TurnWatchDog watchDog = new TurnWatchDog(finish, (long) (gameStates.turnTime * 0.9));
+        TurnWatchDog watchDog = new TurnWatchDog(finish, (long) (gameStates.turnTime * 0.8));
+
+        gameStates.update(turnInfo);
 
         executeStrategy(turnInfo, output, gameStates);
 
