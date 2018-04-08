@@ -10,7 +10,7 @@ import java.util.List;
  * Created by zhanxies on 3/30/2018.
  *
  */
-public class InfoTurn {
+public class InfoTurn implements InfoGame {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InfoTurn.class);
 

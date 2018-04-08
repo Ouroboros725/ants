@@ -1,8 +1,8 @@
 package com.ouroboros.ants;
 
+import com.google.common.collect.EvictingQueue;
 import org.springframework.stereotype.Component;
 
-import java.util.Random;
 import java.util.function.Consumer;
 
 import static com.ouroboros.ants.Utils.dist;
@@ -17,13 +17,15 @@ public class StrategyDumb extends StrategyAbstract {
 
     Tile[][] ants;
 
-    @Override
-    void setupStrategy() {
+    EvictingQueue[][] antsQueue;
 
+    @Override
+    void setupStrategy(GameStates gameStates) {
+        antsQueue = new EvictingQueue[gameStates.xt][gameStates.yt];
     }
 
     @Override
-    void executeStrategy(InfoTurn turnInfo, Consumer<Move> output, GameStates gameStates) {
+    void executeStrategy(InfoTurn turnInfo, GameStates gameStates, Consumer<Move> output) {
         ants = new Tile[gameStates.xt][gameStates.yt];
         for (TilePlayer t : turnInfo.liveAnts) {
             ants[t.tile.x][t.tile.y] = t.tile;
@@ -39,6 +41,13 @@ public class StrategyDumb extends StrategyAbstract {
             if (player.player == 0) {
                 Tile tile = player.tile;
 
+                if (antsQueue[tile.x][tile.y] == null) {
+                    antsQueue[tile.x][tile.y] = EvictingQueue.<Tile>create(20);
+                }
+
+                EvictingQueue queue = antsQueue[tile.x][tile.y];
+
+
                 int n = nc(tile.y - 1, gameStates.yt);
                 int s = nc(tile.y + 1, gameStates.yt);
                 int w = nc(tile.x - 1, gameStates.xt);
@@ -50,7 +59,7 @@ public class StrategyDumb extends StrategyAbstract {
                 t4[2] = gameStates.tiles[w][tile.y];
                 t4[3] = gameStates.tiles[e][tile.y];
 
-                int index = 0;
+                int index = -1;
                 int minDist = Integer.MAX_VALUE;
 
                 for (int i = 0; i < 4; i++) {
@@ -59,6 +68,9 @@ public class StrategyDumb extends StrategyAbstract {
                         continue;
                     }
                     if (ants[tt.x][tt.y] != null) {
+                        continue;
+                    }
+                    if (queue.contains(tt)) {
                         continue;
                     }
 
@@ -71,11 +83,19 @@ public class StrategyDumb extends StrategyAbstract {
                     }
                 }
 
+                if (index < 0) {
+                    index = (int) Math.floor(Math.random() * 4);
+                }
+
                 Move move = new Move(tile.x, tile.y, dir[index]);
                 output.accept(move);
 
                 ants[tile.x][tile.y] = null;
                 ants[t4[index].x][t4[index].y] = t4[index];
+
+                antsQueue[tile.x][tile.y].add(t4[index]);
+                antsQueue[t4[index].x][t4[index].y] = antsQueue[tile.x][tile.y];
+                antsQueue[tile.x][tile.y] = null;
             }
         }
     }

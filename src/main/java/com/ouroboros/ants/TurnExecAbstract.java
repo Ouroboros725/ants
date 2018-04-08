@@ -1,0 +1,73 @@
+package com.ouroboros.ants;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * Created by zhanxies on 4/8/2018.
+ *
+ */
+@Component
+public abstract class TurnExecAbstract implements TurnExec {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(TurnExecAbstract.class);
+
+    volatile AtomicBoolean outputSwitch = new AtomicBoolean();
+
+    volatile CountDownLatch finishSwitch;
+
+    ExecutorService watchDog = Executors.newSingleThreadExecutor();
+
+    ExecutorService strategyExec = Executors.newSingleThreadExecutor();
+
+    @Override
+    public void execute(StrategyFunction function, long time) {
+        outputSwitch.set(true);
+        finishSwitch = new CountDownLatch(1);
+
+        strategyExec.execute(() -> {
+            function.apply(this::stepOutput);
+            finishSwitch.countDown();
+        });
+
+        watchDog.execute(() -> {
+            try {
+                boolean done = finishSwitch.await(time, TimeUnit.MILLISECONDS);
+                if (!done) {
+                    LOGGER.debug("unfinished turn");
+                }
+            } catch (InterruptedException e) {
+//                LOGGER.error("error when waiting for turn finish", e);
+                Thread.currentThread().interrupt();
+            }
+
+            finishOutput();
+        });
+    }
+
+    boolean stepOutput(Move move) {
+        if (outputSwitch.get()) {
+            this.move(move);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void finishOutput() {
+        outputSwitch.set(false);
+        finish();
+    }
+
+    abstract void move(Move move);
+
+    abstract void finish();
+
+}

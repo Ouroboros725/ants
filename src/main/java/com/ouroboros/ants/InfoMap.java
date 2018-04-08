@@ -9,7 +9,7 @@ import java.util.List;
  * Created by zhanxies on 3/30/2018.
  *
  */
-public class InfoMap {
+public class InfoMap implements InfoGame {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(InfoMap.class);
 

@@ -12,9 +12,9 @@ import java.util.List;
  *
  */
 @Component
-public class CommTerminal implements Comm {
+public class TurnExecConsole extends TurnExecAbstract {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(CommTerminal.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(TurnExecConsole.class);
 
     @Override
     public Input update(List<String> states) {

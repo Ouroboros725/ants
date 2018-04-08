@@ -9,30 +9,17 @@ import java.util.function.Consumer;
 public abstract class StrategyAbstract implements Strategy {
 
     @Override
-    public void prepare(InfoMap mapInfo, Consumer<Move> output, Runnable finish, GameStates gameStates) {
-        gameStates.timeSetup(mapInfo);
-
-        TurnWatchDog watchDog = new TurnWatchDog(finish, (long) (gameStates.loadTime * 0.8));
-
-        gameStates.init(mapInfo);
-
-        setupStrategy();
-
-        watchDog.finishTurn();
+    public void prepare(InfoMap mapInfo, GameStates gameStates, TurnExec turnExec) {
+        gameStates.warmup(mapInfo);
+        turnExec.execute(o -> { gameStates.init(mapInfo); setupStrategy(gameStates); }, (long) (gameStates.loadTime * 0.8));
     }
 
-    abstract void setupStrategy();
+    abstract void setupStrategy(GameStates gameStates);
 
     @Override
-    public void apply(InfoTurn turnInfo, Consumer<Move> output, Runnable finish, GameStates gameStates) {
-        TurnWatchDog watchDog = new TurnWatchDog(finish, (long) (gameStates.turnTime * 0.8));
-
-        gameStates.update(turnInfo);
-
-        executeStrategy(turnInfo, output, gameStates);
-
-        watchDog.finishTurn();
+    public void apply(InfoTurn turnInfo, GameStates gameStates, TurnExec turnExec) {
+        turnExec.execute(o -> { gameStates.update(turnInfo); executeStrategy(turnInfo, gameStates, o); }, (long) (gameStates.turnTime * 0.8));
     }
 
-    abstract void executeStrategy(InfoTurn turnInfo, Consumer<Move> output, GameStates gameStates);
+    abstract void executeStrategy(InfoTurn turnInfo, GameStates gameStates, Consumer<Move> output);
 }

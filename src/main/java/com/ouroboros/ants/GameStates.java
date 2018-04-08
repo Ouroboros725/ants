@@ -19,15 +19,16 @@ public class GameStates {
 
     Tile[][] water;
 
-    void timeSetup(InfoMap mapInfo) {
+    void warmup(InfoMap mapInfo) {
         this.loadTime = mapInfo.loadtime;
         this.turnTime = mapInfo.turntime;
-    }
 
-    void init(InfoMap mapInfo) {
         xt = mapInfo.cols;
         yt = mapInfo.rows;
 
+    }
+
+    void init(InfoMap mapInfo) {
         tiles = new Tile[mapInfo.cols][mapInfo.rows];
         for (int x = 0; x < xt; x++) {
             for (int y = 0; y < yt; y++) {

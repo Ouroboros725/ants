@@ -21,7 +21,7 @@ public class Botxy implements Bot {
     Strategy strategy;
 
     @Autowired
-    Comm comm;
+    TurnExec turnExec;
 
     @Autowired
     GameStates gameStates;
@@ -31,17 +31,17 @@ public class Botxy implements Bot {
         Input input;
         do {
             List<String> states = new ArrayList<>();
-            input = comm.update(states);
+            input = turnExec.update(states);
 
             switch (input) {
                 case ready:
                     InfoMap mapInfo = new InfoMap(states);
-                    strategy.prepare(mapInfo, comm::move, comm::finish, gameStates);
+                    strategy.prepare(mapInfo, gameStates, turnExec);
                     break;
                 case go:
                     InfoTurn turnInfo = new InfoTurn(states, gameStates);
                     if (!turnInfo.gameEnd) {
-                        strategy.apply(turnInfo, comm::move, comm::finish, gameStates);
+                        strategy.apply(turnInfo, gameStates, turnExec);
                     } else {
                         input = Input.end;
                         LOGGER.debug("end of game");
