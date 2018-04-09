@@ -1,5 +1,11 @@
 package com.ouroboros.ants;
 
+import com.ouroboros.ants.exec.StrategyExecutor;
+import com.ouroboros.ants.game.Situation;
+import com.ouroboros.ants.info.Map;
+import com.ouroboros.ants.info.Turn;
+import com.ouroboros.ants.strategy.Strategy;
+import com.ouroboros.ants.utils.Input;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,10 +27,10 @@ public class Botxy implements Bot {
     Strategy strategy;
 
     @Autowired
-    TurnExec turnExec;
+    StrategyExecutor turnExec;
 
     @Autowired
-    GameStates gameStates;
+    Situation gameStates;
 
     @Override
     public void run() {
@@ -35,11 +41,11 @@ public class Botxy implements Bot {
 
             switch (input) {
                 case ready:
-                    InfoMap mapInfo = new InfoMap(states);
+                    Map mapInfo = new Map(states);
                     strategy.prepare(mapInfo, gameStates, turnExec);
                     break;
                 case go:
-                    InfoTurn turnInfo = new InfoTurn(states, gameStates);
+                    Turn turnInfo = new Turn(states, gameStates);
                     if (!turnInfo.gameEnd) {
                         strategy.apply(turnInfo, gameStates, turnExec);
                     } else {

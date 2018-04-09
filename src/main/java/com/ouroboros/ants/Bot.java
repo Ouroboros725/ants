@@ -5,8 +5,5 @@ package com.ouroboros.ants;
  *
  */
 public interface Bot {
-
     void run();
-
-
 }

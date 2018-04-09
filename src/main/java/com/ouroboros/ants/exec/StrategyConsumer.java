@@ -1,4 +1,6 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.exec;
+
+import com.ouroboros.ants.utils.Move;
 
 import java.util.function.Consumer;
 
@@ -7,7 +9,7 @@ import java.util.function.Consumer;
  *
  */
 @FunctionalInterface
-public interface StrategyFunction {
+public interface StrategyConsumer {
 
     void apply(Consumer<Move> output);
 }

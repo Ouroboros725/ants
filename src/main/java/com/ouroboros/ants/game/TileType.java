@@ -1,4 +1,4 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.game;
 
 /**
  * Created by zhanxies on 4/3/2018.

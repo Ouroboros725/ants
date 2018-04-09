@@ -1,5 +1,7 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.exec;
 
+import com.ouroboros.ants.utils.Input;
+import com.ouroboros.ants.utils.Move;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -12,9 +14,9 @@ import java.util.List;
  *
  */
 @Component
-public class TurnExecConsole extends TurnExecAbstract {
+public class ConsoleStrategyExecutor extends AbstractStrategyExecutor {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(TurnExecConsole.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ConsoleStrategyExecutor.class);
 
     @Override
     public Input update(List<String> states) {

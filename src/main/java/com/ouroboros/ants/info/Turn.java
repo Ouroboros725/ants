@@ -1,5 +1,8 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.info;
 
+import com.ouroboros.ants.game.Situation;
+import com.ouroboros.ants.game.Tile;
+import com.ouroboros.ants.game.TilePlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,19 +13,19 @@ import java.util.List;
  * Created by zhanxies on 3/30/2018.
  *
  */
-public class InfoTurn implements InfoGame {
+public class Turn implements Game {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(InfoTurn.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Turn.class);
 
-    List<Tile> water = new ArrayList<>();
-    List<Tile> food = new ArrayList<>();
-    List<TilePlayer> hill = new ArrayList<>();
-    List<TilePlayer> liveAnts = new ArrayList<>();
-    List<TilePlayer> deadAnts = new ArrayList<>();
+    public List<Tile> water = new ArrayList<>();
+    public List<Tile> food = new ArrayList<>();
+    public List<TilePlayer> hill = new ArrayList<>();
+    public List<TilePlayer> liveAnts = new ArrayList<>();
+    public List<TilePlayer> deadAnts = new ArrayList<>();
 
-    boolean gameEnd;
+    public boolean gameEnd;
 
-    InfoTurn(List<String> info, GameStates gameStates) {
+    public Turn(List<String> info, Situation gameStates) {
         try {
             for (String line : info) {
                 LOGGER.debug("received map info {}", line);

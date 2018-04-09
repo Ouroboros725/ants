@@ -1,5 +1,6 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.exec;
 
+import com.ouroboros.ants.utils.Move;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -15,9 +16,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  */
 @Component
-public abstract class TurnExecAbstract implements TurnExec {
+public abstract class AbstractStrategyExecutor implements StrategyExecutor {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(TurnExecAbstract.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractStrategyExecutor.class);
 
     volatile AtomicBoolean outputSwitch = new AtomicBoolean();
 
@@ -28,7 +29,7 @@ public abstract class TurnExecAbstract implements TurnExec {
     ExecutorService strategyExec = Executors.newSingleThreadExecutor();
 
     @Override
-    public void execute(StrategyFunction function, long time) {
+    public void execute(StrategyConsumer function, long time) {
         outputSwitch.set(true);
         finishSwitch = new CountDownLatch(1);
 

@@ -1,6 +1,11 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.strategy;
 
 import com.google.common.collect.EvictingQueue;
+import com.ouroboros.ants.game.Situation;
+import com.ouroboros.ants.game.Tile;
+import com.ouroboros.ants.game.TilePlayer;
+import com.ouroboros.ants.info.Turn;
+import com.ouroboros.ants.utils.Move;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -8,17 +13,17 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.function.Consumer;
 
-import static com.ouroboros.ants.Utils.dist;
-import static com.ouroboros.ants.Utils.nc;
+import static com.ouroboros.ants.utils.Utils.dist;
+import static com.ouroboros.ants.utils.Utils.nc;
 
 /**
  * Created by zhanxies on 3/30/2018.
  *
  */
 @Component
-public class StrategyDumb extends StrategyAbstract {
+public class DumbStrategy extends AbstractStrategy {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(StrategyDumb.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DumbStrategy.class);
     private static final Random RANDOM = new Random();
 
     Tile[][] ants;
@@ -26,13 +31,13 @@ public class StrategyDumb extends StrategyAbstract {
     EvictingQueue[][] antsQueue;
 
     @Override
-    void setupStrategy(GameStates gameStates) {
+    void setupStrategy(Situation gameStates) {
         antsQueue = new EvictingQueue[gameStates.xt][gameStates.yt];
         ownHills = new HashSet<>();
     }
 
     @Override
-    void executeStrategy(InfoTurn turnInfo, GameStates gameStates, Consumer<Move> output) {
+    void executeStrategy(Turn turnInfo, Situation gameStates, Consumer<Move> output) {
         ants = new Tile[gameStates.xt][gameStates.yt];
         for (TilePlayer t : turnInfo.liveAnts) {
             ants[t.tile.x][t.tile.y] = t.tile;
@@ -142,7 +147,7 @@ public class StrategyDumb extends StrategyAbstract {
         }
     }
 
-    private int findMinMaxDist(Tile tile, InfoTurn turnInfo, GameStates gameStates, boolean min) {
+    private int findMinMaxDist(Tile tile, Turn turnInfo, Situation gameStates, boolean min) {
         int dt = min ? Integer.MAX_VALUE : Integer.MIN_VALUE;
         boolean attack = false;
         for (TilePlayer p : turnInfo.hill) {

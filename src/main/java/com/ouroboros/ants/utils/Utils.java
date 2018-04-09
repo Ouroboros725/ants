@@ -1,4 +1,6 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.utils;
+
+import com.ouroboros.ants.game.Tile;
 
 /**
  * Created by zhanxies on 4/4/2018.
@@ -6,13 +8,13 @@ package com.ouroboros.ants;
  */
 public class Utils {
 
-    static int dist(int x1, int y1, int x2, int y2, int xt, int yt) {
+    public static int dist(int x1, int y1, int x2, int y2, int xt, int yt) {
         int dx = Math.min(Math.abs(x1 - x2), xt - Math.abs(x1 - x2));
         int dy = Math.min(Math.abs(y1- y2), yt - Math.abs(y1 - y2));
         return dx * dx + dy * dy;
     }
 
-    static int nc(int x, int xt) {
+    public static int nc(int x, int xt) {
         if (x < 0) {
             return xt + x;
         } else if (x >= xt) {
@@ -20,5 +22,9 @@ public class Utils {
         } else {
             return x;
         }
+    }
+
+    public static Tile dfs(Tile start, Tile goal, Tile[][] map) {
+        return null;
     }
 }

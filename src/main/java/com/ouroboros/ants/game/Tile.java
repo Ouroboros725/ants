@@ -1,12 +1,12 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.game;
 
 /**
  * Created by zhanxies on 4/3/2018.
  *
  */
 public class Tile {
-    int x;
-    int y;
+    public int x;
+    public int y;
 
     Tile(int x, int y) {
         this.x = x;

@@ -1,15 +1,15 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.utils;
 
 /**
  * Created by zhanxies on 3/30/2018.
  *
  */
 public class Move {
-    int x;
-    int y;
-    char d;
+    public int x;
+    public int y;
+    public char d;
 
-    Move(int x, int y, char d) {
+    public Move(int x, int y, char d) {
         this.x = x;
         this.y = y;
         this.d = d;

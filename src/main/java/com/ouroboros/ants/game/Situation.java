@@ -1,5 +1,7 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.game;
 
+import com.ouroboros.ants.info.Map;
+import com.ouroboros.ants.info.Turn;
 import org.springframework.stereotype.Component;
 
 /**
@@ -7,19 +9,19 @@ import org.springframework.stereotype.Component;
  *
  */
 @Component
-public class GameStates {
+public class Situation {
 
-    long loadTime;
-    long turnTime;
+    public long loadTime;
+    public long turnTime;
 
-    Tile[][] tiles;
+    public Tile[][] tiles;
 
-    int xt;
-    int yt;
+    public int xt;
+    public int yt;
 
-    Tile[][] water;
+    public Tile[][] water;
 
-    void warmup(InfoMap mapInfo) {
+    public void warmup(Map mapInfo) {
         this.loadTime = mapInfo.loadtime;
         this.turnTime = mapInfo.turntime;
 
@@ -28,7 +30,7 @@ public class GameStates {
 
     }
 
-    void init(InfoMap mapInfo) {
+    public void init(Map mapInfo) {
         tiles = new Tile[mapInfo.cols][mapInfo.rows];
         for (int x = 0; x < xt; x++) {
             for (int y = 0; y < yt; y++) {
@@ -39,7 +41,7 @@ public class GameStates {
         water = new Tile[xt][yt];
     }
 
-    void update(InfoTurn infoTurn) {
+    public void update(Turn infoTurn) {
         for (Tile t : infoTurn.water) {
             water[t.x][t.y] = t;
         }

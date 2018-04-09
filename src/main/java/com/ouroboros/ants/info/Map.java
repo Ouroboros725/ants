@@ -1,4 +1,4 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.info;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,9 +9,9 @@ import java.util.List;
  * Created by zhanxies on 3/30/2018.
  *
  */
-public class InfoMap implements InfoGame {
+public class Map implements Game {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(InfoMap.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Map.class);
 
     private static final String colsStr = "cols";
     private static final String rowsStr = "rows";
@@ -24,18 +24,18 @@ public class InfoMap implements InfoGame {
     private static final String player_seedStr = "player_seed";
     private static final String playersStr = "players";
 
-    int turns;
-    int rows;
-    int cols;
-    int loadtime;
-    int turntime;
-    int viewradius2;
-    int attackradius2;
-    int spawnradius2;
-    int player_seed;
-    int players;
+    public int turns;
+    public int rows;
+    public int cols;
+    public int loadtime;
+    public int turntime;
+    public int viewradius2;
+    public int attackradius2;
+    public int spawnradius2;
+    public int player_seed;
+    public int players;
 
-    InfoMap(List<String> info) {
+    public Map(List<String> info) {
         try {
             for (String line : info) {
                 LOGGER.debug("received map info {}", line);

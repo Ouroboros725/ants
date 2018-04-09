@@ -1,14 +1,14 @@
-package com.ouroboros.ants;
+package com.ouroboros.ants.game;
 
 /**
  * Created by zhanxies on 4/3/2018.
  *
  */
 public class TilePlayer {
-    Tile tile;
-    int player;
+    public Tile tile;
+    public int player;
 
-    TilePlayer(Tile tile, int player) {
+    public TilePlayer(Tile tile, int player) {
         this.tile = tile;
         this.player = player;
     }
