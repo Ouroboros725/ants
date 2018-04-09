@@ -12,4 +12,12 @@ public class Tile {
         this.x = x;
         this.y = y;
     }
+
+    @Override
+    public String toString() {
+        return "Tile{" +
+                "x=" + x +
+                ", y=" + y +
+                '}';
+    }
 }

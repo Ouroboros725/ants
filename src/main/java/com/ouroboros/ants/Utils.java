@@ -15,7 +15,7 @@ public class Utils {
     static int nc(int x, int xt) {
         if (x < 0) {
             return xt + x;
-        } else if (x > xt) {
+        } else if (x >= xt) {
             return x - xt;
         } else {
             return x;

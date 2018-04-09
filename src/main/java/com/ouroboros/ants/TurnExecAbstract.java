@@ -33,22 +33,30 @@ public abstract class TurnExecAbstract implements TurnExec {
         finishSwitch = new CountDownLatch(1);
 
         strategyExec.execute(() -> {
-            function.apply(this::stepOutput);
-            finishSwitch.countDown();
+            try {
+                function.apply(this::stepOutput);
+                finishSwitch.countDown();
+            } catch (Exception ex) {
+                LOGGER.error("strategy crashed.", ex);
+            }
         });
 
         watchDog.execute(() -> {
             try {
-                boolean done = finishSwitch.await(time, TimeUnit.MILLISECONDS);
-                if (!done) {
-                    LOGGER.debug("unfinished turn");
-                }
-            } catch (InterruptedException e) {
+                try {
+                    boolean done = finishSwitch.await(time, TimeUnit.MILLISECONDS);
+                    if (!done) {
+                        LOGGER.debug("unfinished turn");
+                    }
+                } catch (InterruptedException e) {
 //                LOGGER.error("error when waiting for turn finish", e);
-                Thread.currentThread().interrupt();
-            }
+                    Thread.currentThread().interrupt();
+                }
 
-            finishOutput();
+                finishOutput();
+            } catch (Exception ex) {
+                LOGGER.error("timer crashed.", ex);
+            }
         });
     }
 

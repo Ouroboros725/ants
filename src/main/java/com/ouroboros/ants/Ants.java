@@ -1,5 +1,7 @@
 package com.ouroboros.ants;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
@@ -9,10 +11,16 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
  */
 public class Ants {
 
-    public static void main(String[] args) {
-        ApplicationContext ctx = new AnnotationConfigApplicationContext(AntsConfig.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(Ants.class);
 
-        Bot bot = ctx.getBean(Bot.class);
-        bot.run();
+    public static void main(String[] args) {
+        try {
+            ApplicationContext ctx = new AnnotationConfigApplicationContext(AntsConfig.class);
+
+            Bot bot = ctx.getBean(Bot.class);
+            bot.run();
+        } catch (Exception ex) {
+            LOGGER.error("program crash.", ex);
+        }
     }
 }
