@@ -20,12 +20,12 @@ public abstract class AbstractStrategy implements Strategy {
         turnExec.execute(o -> { gameStates.init(mapInfo); setupStrategy(gameStates); }, (long) (gameStates.loadTime * 0.8));
     }
 
-    abstract void setupStrategy(Situation gameStates);
+    protected abstract void setupStrategy(Situation gameStates);
 
     @Override
     public void apply(Turn turnInfo, Situation gameStates, StrategyExecutor turnExec) {
         turnExec.execute(o -> { gameStates.update(turnInfo); executeStrategy(turnInfo, gameStates, o); }, (long) (gameStates.turnTime * 0.8));
     }
 
-    abstract void executeStrategy(Turn turnInfo, Situation gameStates, Consumer<Move> output);
+    protected abstract void executeStrategy(Turn turnInfo, Situation gameStates, Consumer<Move> output);
 }

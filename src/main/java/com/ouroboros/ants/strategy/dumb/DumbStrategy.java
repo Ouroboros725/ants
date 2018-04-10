@@ -1,10 +1,11 @@
-package com.ouroboros.ants.strategy;
+package com.ouroboros.ants.strategy.dumb;
 
 import com.google.common.collect.EvictingQueue;
 import com.ouroboros.ants.game.Situation;
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.game.TilePlayer;
 import com.ouroboros.ants.info.Turn;
+import com.ouroboros.ants.strategy.AbstractStrategy;
 import com.ouroboros.ants.utils.Move;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,15 +30,17 @@ public class DumbStrategy extends AbstractStrategy {
     Tile[][] ants;
     Set<Tile> ownHills;
     EvictingQueue[][] antsQueue;
+    Map<Tile, Integer> enemyHills;
 
     @Override
-    void setupStrategy(Situation gameStates) {
+    protected void setupStrategy(Situation gameStates) {
         antsQueue = new EvictingQueue[gameStates.xt][gameStates.yt];
         ownHills = new HashSet<>();
+        enemyHills = new HashMap<>();
     }
 
     @Override
-    void executeStrategy(Turn turnInfo, Situation gameStates, Consumer<Move> output) {
+    protected void executeStrategy(Turn turnInfo, Situation gameStates, Consumer<Move> output) {
         ants = new Tile[gameStates.xt][gameStates.yt];
         for (TilePlayer t : turnInfo.liveAnts) {
             ants[t.tile.x][t.tile.y] = t.tile;
@@ -46,8 +49,12 @@ public class DumbStrategy extends AbstractStrategy {
         for (TilePlayer h : turnInfo.hill) {
             if (h.player == 0) {
                 ownHills.add(h.tile);
+            } else {
+                enemyHills.merge(h.tile, 2, Integer::sum);
             }
         }
+
+        enemyHills.replaceAll((k, v) -> v - 1);
 
         char[] dir = new char[4];
         dir[0] = 'n';
@@ -58,6 +65,10 @@ public class DumbStrategy extends AbstractStrategy {
         for (TilePlayer player : turnInfo.liveAnts) {
             if (player.player == 0) {
                 Tile tile = player.tile;
+
+                if (enemyHills.containsKey(tile)) {
+                    enemyHills.remove(tile);
+                }
 
                 if (antsQueue[tile.x][tile.y] == null) {
                     antsQueue[tile.x][tile.y] = EvictingQueue.<Tile>create(25);
@@ -150,9 +161,10 @@ public class DumbStrategy extends AbstractStrategy {
     private int findMinMaxDist(Tile tile, Turn turnInfo, Situation gameStates, boolean min) {
         int dt = min ? Integer.MAX_VALUE : Integer.MIN_VALUE;
         boolean attack = false;
-        for (TilePlayer p : turnInfo.hill) {
-            if (p.player != 0) {
-                int d = dist(p.tile.x, p.tile.y, tile.x, tile.y, gameStates.xt, gameStates.yt);
+        for (Map.Entry<Tile, Integer> entry : enemyHills.entrySet()) {
+            if (entry.getValue() < 25) {
+                Tile t = entry.getKey();
+                int d = dist(t.x, t.y, tile.x, tile.y, gameStates.xt, gameStates.yt);
                 dt = min ? Math.min(dt, d) : Math.max(dt, d);
                 attack = true;
             }
