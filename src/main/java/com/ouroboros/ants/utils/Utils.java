@@ -1,7 +1,5 @@
 package com.ouroboros.ants.utils;
 
-import com.ouroboros.ants.game.Tile;
-
 /**
  * Created by zhanxies on 4/4/2018.
  *
@@ -24,7 +22,5 @@ public class Utils {
         }
     }
 
-    public static Tile dfs(Tile start, Tile goal, Tile[][] map) {
-        return null;
-    }
+
 }

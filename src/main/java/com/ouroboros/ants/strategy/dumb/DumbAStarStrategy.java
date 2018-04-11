@@ -22,9 +22,9 @@ import static com.ouroboros.ants.utils.Utils.nc;
  *
  */
 @Component
-public class DumbStrategy extends AbstractStrategy {
+public class DumbAStarStrategy extends AbstractStrategy {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(DumbStrategy.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(DumbAStarStrategy.class);
     private static final Random RANDOM = new Random();
 
     Tile[][] ants;
