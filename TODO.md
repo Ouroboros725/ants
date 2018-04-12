@@ -7,3 +7,4 @@
 7. cache and reuse bfs results
 8. controlled area analysis, direction detection with computational geometry
 9. bresenham's line algorithm
+10. detect deadend and avoid entering

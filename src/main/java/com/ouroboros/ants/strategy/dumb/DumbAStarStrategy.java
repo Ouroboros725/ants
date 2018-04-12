@@ -9,20 +9,18 @@ import com.ouroboros.ants.strategy.AbstractStrategy;
 import com.ouroboros.ants.utils.Move;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 
 import java.util.*;
 import java.util.function.Consumer;
 
-import static com.ouroboros.ants.utils.Utils.dist;
+import static com.ouroboros.ants.utils.Utils.distEucl2;
 import static com.ouroboros.ants.utils.Utils.nc;
 
 /**
  * Created by zhanxies on 3/30/2018.
  *
  */
-@Component
-public class DumbAStarStrategy extends AbstractStrategy {
+public abstract class DumbAStarStrategy extends AbstractStrategy {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(DumbAStarStrategy.class);
     private static final Random RANDOM = new Random();
@@ -150,6 +148,7 @@ public class DumbAStarStrategy extends AbstractStrategy {
                 output.accept(move);
 
                 ants[t4[index].x][t4[index].y] = t4[index];
+                ants[tile.x][tile.y] = null;
 
                 antsQueue[tile.x][tile.y].add(t4[index]);
                 antsQueue[t4[index].x][t4[index].y] = antsQueue[tile.x][tile.y];
@@ -164,7 +163,7 @@ public class DumbAStarStrategy extends AbstractStrategy {
         for (Map.Entry<Tile, Integer> entry : enemyHills.entrySet()) {
             if (entry.getValue() < 25) {
                 Tile t = entry.getKey();
-                int d = dist(t.x, t.y, tile.x, tile.y, gameStates.xt, gameStates.yt);
+                int d = distEucl2(t.x, t.y, tile.x, tile.y, gameStates.xt, gameStates.yt);
                 dt = min ? Math.min(dt, d) : Math.max(dt, d);
                 attack = true;
             }
@@ -179,4 +178,6 @@ public class DumbAStarStrategy extends AbstractStrategy {
         }
         return dt;
     }
+
+    abstract protected int dist(int x1, int y1, int x2, int y2, int xt, int yt);
 }

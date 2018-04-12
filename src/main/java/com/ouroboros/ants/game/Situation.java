@@ -19,6 +19,10 @@ public class Situation {
     public int xt;
     public int yt;
 
+    public int viewRadius2;
+    public int attackRadius2;
+    public int spawnRadius2;
+
     public Tile[][] water;
 
     public void warmup(Map mapInfo) {
@@ -39,6 +43,10 @@ public class Situation {
         }
 
         water = new Tile[xt][yt];
+
+        viewRadius2 = mapInfo.viewradius2;
+        attackRadius2 = mapInfo.attackradius2;
+        spawnRadius2 = mapInfo.spawnradius2;
     }
 
     public void update(Turn infoTurn) {
