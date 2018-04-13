@@ -1,7 +1,7 @@
 package com.ouroboros.ants.strategy;
 
 import com.ouroboros.ants.exec.StrategyExecutor;
-import com.ouroboros.ants.game.Situation;
+import com.ouroboros.ants.game.Global;
 import com.ouroboros.ants.info.Map;
 import com.ouroboros.ants.info.Turn;
 
@@ -10,7 +10,7 @@ import com.ouroboros.ants.info.Turn;
  *
  */
 public interface Strategy {
-    void prepare(Map mapInfo, Situation gameStates, StrategyExecutor turnExec);
+    void prepare(Map mapInfo, Global gameStates, StrategyExecutor turnExec);
 
-    void apply(Turn turnInfo, Situation gameStates, StrategyExecutor turnExec);
+    void apply(Turn turnInfo, Global gameStates, StrategyExecutor turnExec);
 }

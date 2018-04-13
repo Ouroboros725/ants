@@ -1,7 +1,7 @@
 package com.ouroboros.ants;
 
 import com.ouroboros.ants.exec.StrategyExecutor;
-import com.ouroboros.ants.game.Situation;
+import com.ouroboros.ants.game.Global;
 import com.ouroboros.ants.info.Map;
 import com.ouroboros.ants.info.Turn;
 import com.ouroboros.ants.strategy.Strategy;
@@ -30,7 +30,7 @@ public class Botxy implements Bot {
     StrategyExecutor turnExec;
 
     @Autowired
-    Situation gameStates;
+    Global gameStates;
 
     @Override
     public void run() {
@@ -45,7 +45,7 @@ public class Botxy implements Bot {
                     strategy.prepare(mapInfo, gameStates, turnExec);
                     break;
                 case go:
-                    Turn turnInfo = new Turn(states, gameStates);
+                    Turn turnInfo = new Turn(states);
                     if (!turnInfo.gameEnd) {
                         strategy.apply(turnInfo, gameStates, turnExec);
                     } else {

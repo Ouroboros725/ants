@@ -1,5 +1,10 @@
 package com.ouroboros.ants.game;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+
 import static com.ouroboros.ants.utils.Utils.nc;
 
 /**
@@ -12,7 +17,7 @@ public enum Direction {
     WEST('w', (x, y, xt, yt) -> {int[] n = new int[2]; n[0] = nc(x - 1, xt); n[1] = y; return n;}),
     NORTH('n', (x, y, xt, yt) -> {int[] n = new int[2]; n[0] = x; n[1] = nc(y - 1, yt); return n;});
 
-    public char c;
+    private char c;
     private NeighbourGetter getter;
 
     Direction(char c, NeighbourGetter neighbourGetter) {
@@ -33,6 +38,16 @@ public enum Direction {
         }
 
         return null;
+    }
+
+    public static List<Direction> getValuesRandom() {
+        List<Direction> values = Arrays.asList(Direction.values());
+        Collections.shuffle(values, ThreadLocalRandom.current());
+        return values;
+    }
+
+    public char getChar() {
+        return c;
     }
 
     public int[] getNeighbour(int x, int y, int xt, int yt) {

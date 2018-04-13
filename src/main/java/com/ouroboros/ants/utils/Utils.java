@@ -1,5 +1,8 @@
 package com.ouroboros.ants.utils;
 
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * Created by zhanxies on 4/4/2018.
  *
@@ -32,5 +35,13 @@ public class Utils {
         }
     }
 
+    public static <T> T getRandomElement(List<T> list) {
+        if (list.size() == 1) {
+            return list.get(0);
+        }
+
+        int i = ThreadLocalRandom.current().nextInt(list.size());
+        return list.get(i);
+    }
 
 }

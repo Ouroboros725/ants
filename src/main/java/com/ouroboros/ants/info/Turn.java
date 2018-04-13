@@ -1,6 +1,5 @@
 package com.ouroboros.ants.info;
 
-import com.ouroboros.ants.game.Situation;
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.game.TilePlayer;
 import org.slf4j.Logger;
@@ -25,7 +24,7 @@ public class Turn implements Game {
 
     public boolean gameEnd;
 
-    public Turn(List<String> info, Situation gameStates) {
+    public Turn(List<String> info) {
         try {
             for (String line : info) {
                 LOGGER.debug("received map info {}", line);
@@ -37,19 +36,19 @@ public class Turn implements Game {
 
                     switch (tokens[0]) {
                         case "w":
-                            water.add(gameStates.tiles[x][y]);
+                            water.add(Tile.getTile(x, y));
                             break;
                         case "f":
-                            food.add(gameStates.tiles[x][y]);
+                            food.add(Tile.getTile(x, y));
                             break;
                         case "h":
-                            hill.add(new TilePlayer(gameStates.tiles[x][y], Integer.parseInt(tokens[3])));
+                            hill.add(new TilePlayer(Tile.getTile(x, y), Integer.parseInt(tokens[3])));
                             break;
                         case "a":
-                            liveAnts.add(new TilePlayer(gameStates.tiles[x][y], Integer.parseInt(tokens[3])));
+                            liveAnts.add(new TilePlayer(Tile.getTile(x, y), Integer.parseInt(tokens[3])));
                             break;
                         case "d":
-                            deadAnts.add(new TilePlayer(gameStates.tiles[x][y], Integer.parseInt(tokens[3])));
+                            deadAnts.add(new TilePlayer(Tile.getTile(x, y), Integer.parseInt(tokens[3])));
                             break;
                         default:
                             LOGGER.debug("unrecognized turn info {}", line);

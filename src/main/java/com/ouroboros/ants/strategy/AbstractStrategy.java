@@ -1,7 +1,7 @@
 package com.ouroboros.ants.strategy;
 
 import com.ouroboros.ants.exec.StrategyExecutor;
-import com.ouroboros.ants.game.Situation;
+import com.ouroboros.ants.game.Global;
 import com.ouroboros.ants.info.Map;
 import com.ouroboros.ants.info.Turn;
 import com.ouroboros.ants.utils.Move;
@@ -15,17 +15,17 @@ import java.util.function.Consumer;
 public abstract class AbstractStrategy implements Strategy {
 
     @Override
-    public void prepare(Map mapInfo, Situation gameStates, StrategyExecutor turnExec) {
+    public void prepare(Map mapInfo, Global gameStates, StrategyExecutor turnExec) {
         gameStates.warmup(mapInfo);
-        turnExec.execute(o -> { gameStates.init(mapInfo); setupStrategy(gameStates); }, (long) (gameStates.loadTime * 0.8));
+        turnExec.execute(o -> { gameStates.init(mapInfo); setupStrategy(gameStates); }, (gameStates.loadTime - 25));
     }
 
-    protected abstract void setupStrategy(Situation gameStates);
+    protected abstract void setupStrategy(Global gameStates);
 
     @Override
-    public void apply(Turn turnInfo, Situation gameStates, StrategyExecutor turnExec) {
-        turnExec.execute(o -> { gameStates.update(turnInfo); executeStrategy(turnInfo, gameStates, o); }, (long) (gameStates.turnTime * 0.8));
+    public void apply(Turn turnInfo, Global gameStates, StrategyExecutor turnExec) {
+        turnExec.execute(o -> executeStrategy(turnInfo, gameStates, o), (gameStates.turnTime - 25));
     }
 
-    protected abstract void executeStrategy(Turn turnInfo, Situation gameStates, Consumer<Move> output);
+    protected abstract void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output);
 }
