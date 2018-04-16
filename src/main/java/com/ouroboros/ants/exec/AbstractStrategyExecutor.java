@@ -6,10 +6,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import static com.ouroboros.ants.Ants.executor;
 
 /**
  * Created by zhanxies on 4/8/2018.
@@ -24,16 +24,12 @@ public abstract class AbstractStrategyExecutor implements StrategyExecutor {
 
     volatile CountDownLatch finishSwitch;
 
-    ExecutorService watchDog = Executors.newSingleThreadExecutor();
-
-    ExecutorService strategyExec = Executors.newSingleThreadExecutor();
-
     @Override
     public void execute(StrategyConsumer function, long time) {
         outputSwitch.set(true);
         finishSwitch = new CountDownLatch(1);
 
-        strategyExec.execute(() -> {
+        executor.execute(() -> {
             try {
                 function.apply(this::stepOutput);
                 finishSwitch.countDown();
@@ -42,7 +38,7 @@ public abstract class AbstractStrategyExecutor implements StrategyExecutor {
             }
         });
 
-        watchDog.execute(() -> {
+        executor.execute(() -> {
             try {
                 try {
                     boolean done = finishSwitch.await(time, TimeUnit.MILLISECONDS);

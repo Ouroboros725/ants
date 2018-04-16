@@ -5,6 +5,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+
 /**
  * Created by zhanxies on 3/30/2018.
  *
@@ -12,6 +15,12 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 public class Ants {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Ants.class);
+
+    public static final Executor executor = Executors.newFixedThreadPool(52, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        return t;
+    });
 
     public static void main(String[] args) {
         try {

@@ -13,16 +13,20 @@ import java.util.List;
  */
 public class Influence {
 
-    public static void incInf(Tile tile, int[][] infMap, int[] inc, int xt, int yt) {
-        boolean[][] searched = new boolean[xt][yt];
+    @FunctionalInterface
+    public interface InfUpdate {
+        void update(int x, int y, int i);
+    }
+
+    public static void infUpdate(Tile tile, int depth, int xt, int yt, InfUpdate inUpdate, InfUpdate outUpdate, boolean[][] searched) {
         searched[tile.x][tile.y] = true;
 
         List<Tile> origins = Lists.newArrayList(tile);
-        for (int i = 0; i < inc.length; i++) {
+        for (int i = 0; i < depth; i++) {
             List<Tile> nextLayer = new ArrayList<>(4 * (i + 1));
 
             for (Tile o : origins) {
-                infMap[o.x][o.y] += inc[i];
+                inUpdate.update(o.x, o.y, i);
 
                 for (Direction d : Direction.values()) {
                     int[] co = d.getNeighbour(o.x, o.y, xt, yt);
@@ -40,5 +44,11 @@ public class Influence {
 
             origins = nextLayer;
         }
+
+        for (Tile o : origins) {
+            outUpdate.update(o.x, o.y, 0);
+        }
     }
+
+
 }

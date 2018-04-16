@@ -19,6 +19,8 @@ public class Turn implements Game {
     public List<Tile> water = new ArrayList<>();
     public List<Tile> food = new ArrayList<>();
     public List<TilePlayer> hill = new ArrayList<>();
+    public List<Tile> myAnts = new ArrayList<>();
+    public List<Tile> oppAnts = new ArrayList<>();
     public List<TilePlayer> liveAnts = new ArrayList<>();
     public List<TilePlayer> deadAnts = new ArrayList<>();
 
@@ -45,7 +47,13 @@ public class Turn implements Game {
                             hill.add(new TilePlayer(Tile.getTile(x, y), Integer.parseInt(tokens[3])));
                             break;
                         case "a":
-                            liveAnts.add(new TilePlayer(Tile.getTile(x, y), Integer.parseInt(tokens[3])));
+                            int p = Integer.parseInt(tokens[3]);
+                            if (p == 0) {
+                                myAnts.add(Tile.getTile(x, y));
+                            } else {
+                                oppAnts.add(Tile.getTile(x, y));
+                            }
+                            liveAnts.add(new TilePlayer(Tile.getTile(x, y), p));
                             break;
                         case "d":
                             deadAnts.add(new TilePlayer(Tile.getTile(x, y), Integer.parseInt(tokens[3])));

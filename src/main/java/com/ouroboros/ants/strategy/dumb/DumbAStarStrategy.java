@@ -46,8 +46,12 @@ public abstract class DumbAStarStrategy extends AbstractStrategy {
         }
 
         ants = new boolean[gameStates.xt][gameStates.yt];
-        for (TilePlayer t : turnInfo.liveAnts) {
-            ants[t.tile.x][t.tile.y] = true;
+        for (Tile t : turnInfo.oppAnts) {
+            ants[t.x][t.y] = true;
+        }
+
+        for (Tile t : turnInfo.myAnts) {
+            ants[t.x][t.y] = true;
         }
 
         for (TilePlayer h : turnInfo.hill) {
@@ -66,100 +70,96 @@ public abstract class DumbAStarStrategy extends AbstractStrategy {
         dir[2] = 'w';
         dir[3] = 'e';
 
-        for (TilePlayer player : turnInfo.liveAnts) {
-            if (player.player == 0) {
-                Tile tile = player.tile;
+        for (Tile tile : turnInfo.myAnts) {
+            if (enemyHills.containsKey(tile)) {
+                enemyHills.remove(tile);
+            }
 
-                if (enemyHills.containsKey(tile)) {
-                    enemyHills.remove(tile);
+            if (antsQueue[tile.x][tile.y] == null) {
+                antsQueue[tile.x][tile.y] = EvictingQueue.<Tile>create(25);
+            }
+            EvictingQueue queue = antsQueue[tile.x][tile.y];
+
+            int n = nc(tile.y - 1, gameStates.yt);
+            int s = nc(tile.y + 1, gameStates.yt);
+            int w = nc(tile.x - 1, gameStates.xt);
+            int e = nc(tile.x + 1, gameStates.xt);
+
+            Tile[] t4 = new Tile[4];
+            t4[0] = Tile.getTile(tile.x, n);
+            t4[1] = Tile.getTile(tile.x, s);
+            t4[2] = Tile.getTile(w, tile.y);
+            t4[3] = Tile.getTile(e, tile.y);
+
+            int minDist = Integer.MAX_VALUE;
+            List<Integer> indexes = new ArrayList<>(4);
+
+            for (int i = 0; i < 4; i++) {
+                Tile tt = t4[i];
+
+                if (ownHills.contains(tt)) {
+                    continue;
                 }
-
-                if (antsQueue[tile.x][tile.y] == null) {
-                    antsQueue[tile.x][tile.y] = EvictingQueue.<Tile>create(25);
+                if (water[tt.x][tt.y]) {
+                    continue;
                 }
-                EvictingQueue queue = antsQueue[tile.x][tile.y];
-
-                int n = nc(tile.y - 1, gameStates.yt);
-                int s = nc(tile.y + 1, gameStates.yt);
-                int w = nc(tile.x - 1, gameStates.xt);
-                int e = nc(tile.x + 1, gameStates.xt);
-
-                Tile[] t4 = new Tile[4];
-                t4[0] = Tile.getTile(tile.x, n);
-                t4[1] = Tile.getTile(tile.x, s);
-                t4[2] = Tile.getTile(w, tile.y);
-                t4[3] = Tile.getTile(e, tile.y);
-
-                int minDist = Integer.MAX_VALUE;
-                List<Integer> indexes = new ArrayList<>(4);
-
-                for (int i = 0; i < 4; i++) {
-                    Tile tt = t4[i];
-
-                    if (ownHills.contains(tt)) {
-                        continue;
-                    }
-                    if (water[tt.x][tt.y]) {
-                        continue;
-                    }
-                    if (ants[tt.x][tt.y]) {
-                        continue;
-                    }
-                    if (queue.contains(tt)) {
-                        continue;
-                    }
-
-                    int dist = findMinMaxDist(tt, turnInfo, gameStates, RANDOM.nextInt(4) < 3);
-                    if (dist < minDist) {
-                        minDist = dist;
-                        indexes.clear();
-                        indexes.add(i);
-                    } else if (dist == minDist && Math.random() < 0.5) {
-                        indexes.add(i);
-                    }
+                if (ants[tt.x][tt.y]) {
+                    continue;
                 }
-
-                int index = -1;
-                if (indexes.size() == 1) {
-                    index = indexes.get(0);
-                } else if (indexes.size() > 1) {
-                    index = indexes.get(RANDOM.nextInt(indexes.size()));
-                }
-
-                while (index < 0) {
-                    index = RANDOM.nextInt(5);
-
-                    if (index == 4) {
-                        index = -1;
-                        break;
-                    } else {
-                        Tile tt = t4[index];
-                        if (ownHills.contains(tt)) {
-                            index = -1;
-                        }
-                        if (water[tt.x][tt.y]) {
-                            index = -1;
-                        }
-                        if (ants[tt.x][tt.y]) {
-                            index = -1;
-                        }
-                    }
-                }
-
-                if (index < 0) {
+                if (queue.contains(tt)) {
                     continue;
                 }
 
-                Move move = new Move(tile.x, tile.y, dir[index]);
-                output.accept(move);
-
-                ants[t4[index].x][t4[index].y] = true;
-                ants[tile.x][tile.y] = false;
-
-                antsQueue[tile.x][tile.y].add(t4[index]);
-                antsQueue[t4[index].x][t4[index].y] = antsQueue[tile.x][tile.y];
-                antsQueue[tile.x][tile.y] = null;
+                int dist = findMinMaxDist(tt, turnInfo, gameStates, RANDOM.nextInt(4) < 3);
+                if (dist < minDist) {
+                    minDist = dist;
+                    indexes.clear();
+                    indexes.add(i);
+                } else if (dist == minDist && Math.random() < 0.5) {
+                    indexes.add(i);
+                }
             }
+
+            int index = -1;
+            if (indexes.size() == 1) {
+                index = indexes.get(0);
+            } else if (indexes.size() > 1) {
+                index = indexes.get(RANDOM.nextInt(indexes.size()));
+            }
+
+            while (index < 0) {
+                index = RANDOM.nextInt(5);
+
+                if (index == 4) {
+                    index = -1;
+                    break;
+                } else {
+                    Tile tt = t4[index];
+                    if (ownHills.contains(tt)) {
+                        index = -1;
+                    }
+                    if (water[tt.x][tt.y]) {
+                        index = -1;
+                    }
+                    if (ants[tt.x][tt.y]) {
+                        index = -1;
+                    }
+                }
+            }
+
+            if (index < 0) {
+                continue;
+            }
+
+            Move move = new Move(tile.x, tile.y, dir[index]);
+            output.accept(move);
+
+            ants[t4[index].x][t4[index].y] = true;
+            ants[tile.x][tile.y] = false;
+
+            antsQueue[tile.x][tile.y].add(t4[index]);
+            antsQueue[t4[index].x][t4[index].y] = antsQueue[tile.x][tile.y];
+            antsQueue[tile.x][tile.y] = null;
         }
     }
 
