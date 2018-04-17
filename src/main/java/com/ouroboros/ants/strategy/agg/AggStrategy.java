@@ -36,9 +36,13 @@ public class AggStrategy extends AbstractStrategy {
     DistCalc euclDistCalc = (x1, y1, x2, y2) -> euclDist[x1][y1][x2][y2];
     DistCalc manhDistCalc = (x1, y1, x2, y2) -> manhDist[x1][y1][x2][y2];
 
-    int viewRadiusSteps;
-    int attackRadiusSteps;
-    int spawnRadiusSteps;
+    int viewRadius2;
+    int attackRadius2;
+    int spawnRadius2;
+
+    int spawnRadius;
+    int defenceRadius;
+    int borderRadius;
 
     int spawnInfRad;
     int[] spawnInf;
@@ -74,11 +78,15 @@ public class AggStrategy extends AbstractStrategy {
         visitInfMap = new int[xt][yt];
         water = new boolean[xt][yt];
 
-        viewRadiusSteps = (int) Math.floor(Math.sqrt(gameStates.viewRadius2 / 2.0d) * 2.0d);
-        attackRadiusSteps = (int) Math.floor(Math.sqrt(gameStates.attackRadius2 / 2.0d) * 2.0d);
-        spawnRadiusSteps = (int) Math.floor(Math.sqrt(gameStates.spawnRadius2 / 2.0d) * 2.0d);
+        viewRadius2 = gameStates.viewRadius2;
+        attackRadius2 = gameStates.attackRadius2;
+        spawnRadius2 = gameStates.spawnRadius2;
 
-        spawnInfRad = spawnRadiusSteps + 2;
+        spawnRadius = (int) Math.sqrt(spawnRadius2);
+        defenceRadius = (int) Math.ceil(Math.sqrt(attackRadius2 / 2.0d) * 2.0d);
+        borderRadius = (int) Math.ceil(Math.sqrt(viewRadius2 / 2.0d) * 2.0d);
+
+        spawnInfRad = spawnRadius + 2;
         spawnInf = new int[spawnInfRad];
         spawnAccInf = new int[spawnInfRad];
 
@@ -100,6 +108,12 @@ public class AggStrategy extends AbstractStrategy {
         CompletableFuture<Void> foodUpdate = runAsync(() -> updateFoodInfMap(turnInfo.food), executor);
         CompletableFuture<int[][]> borderCalc = supplyAsync(() -> calcBorder(turnInfo.myAnts), executor);
         CompletableFuture<int[][]> oppBorderCalc = supplyAsync(() -> calcBorder(turnInfo.oppAnts), executor);
+        CompletableFuture<boolean[][]> myAnts = supplyAsync(() -> getAntsMap(turnInfo.myAnts), executor);
+        CompletableFuture<boolean[][]> oppAnts = supplyAsync(() -> getAntsMap(turnInfo.oppAnts), executor);
+
+
+        CompletableFuture<Void> attackHills = waterUpdate.thenCombineAsync(myAnts, (t, u) -> u, executor)
+                .thenComposeAsync(a -> runAsync(() -> attackHills(turnInfo.oppHills, a)), executor);
 
     }
 
@@ -107,6 +121,52 @@ public class AggStrategy extends AbstractStrategy {
         for (Tile w : waterT) {
             water[w.x][w.y] = true;
         }
+    }
+
+    private boolean[][] getAntsAttackInf(List<Tile> antsT) {
+        boolean[][] inf = new boolean[xt][yt];
+        boolean[][] searched = new boolean[xt][yt];
+
+        for (Tile at : antsT) {
+            infUpdate(Tile.getTile(at.x, at.y), defenceRadius + 1, xt, yt, (ox, oy, i) -> {
+                if (euclDist[at.x][at.y][ox][oy] <= attackRadius2) {
+                    inf[ox][oy] = true;
+                }
+            }, searched);
+        }
+
+        return inf;
+    }
+
+    //TODO
+    private boolean[][] getNoGo(boolean[][] antsInf) {
+        boolean[][] blocks = new boolean[xt][yt];
+
+        for (int x = 0; x < xt; x++) {
+            for (int y = 0; y < yt; y++) {
+                if (water[x][y] || antsInf[x][y]) {
+                    blocks[x][y] = true;
+                }
+            }
+        }
+
+        return blocks;
+    }
+
+    private boolean[][] getAntsMap(List<Tile> ants) {
+        boolean[][] antsMap = new boolean[xt][yt];
+        for (Tile t : ants) {
+            antsMap[t.x][t.y] = true;
+        }
+        return antsMap;
+    }
+
+    private void attackHills(List<Tile> hills, boolean[][] ants) {
+
+    }
+
+    private void defendHills(List<Tile> hills, List<Tile> oppAnts) {
+
     }
 
     private void food() {
@@ -126,11 +186,11 @@ public class AggStrategy extends AbstractStrategy {
             for (int y = 0; y < yt; y++) {
                 if (food[x][y]) {
                     int[] inc = foodInfCnt[x][y]++ == 0 ? spawnInf : spawnAccInf;
-                    infUpdate(Tile.getTile(x, y), inc.length, xt, yt, (ox, oy, i) -> foodInfMap[ox][oy] += inc[i], (ox, oy, i) -> {}, new boolean[xt][yt]);
+                    infUpdate(Tile.getTile(x, y), inc.length, xt, yt, (ox, oy, i) -> foodInfMap[ox][oy] += inc[i], new boolean[xt][yt]);
                 } else if (foodInfCnt[x][y] > 0) {
                     int cnt = foodInfCnt[x][y];
                     int[] inc = cnt < 100 ? spawnDecInf[cnt] : spawnDecCalc(cnt);
-                    infUpdate(Tile.getTile(x, y), inc.length, xt, yt, (ox, oy, i) -> foodInfMap[ox][oy] += inc[i], (ox, oy, i) -> {}, new boolean[xt][yt]);
+                    infUpdate(Tile.getTile(x, y), inc.length, xt, yt, (ox, oy, i) -> foodInfMap[ox][oy] += inc[i], new boolean[xt][yt]);
                     foodInfCnt[x][y] = 0;
                 }
             }
@@ -148,12 +208,18 @@ public class AggStrategy extends AbstractStrategy {
         return dec;
     }
 
-    private int[][]  calcBorder(List<Tile> antsT) {
+    private int[][] calcBorder(List<Tile> antsT) {
         int[][] borderMap = new int[xt][yt];
         boolean[][] searched = new boolean[xt][yt];
 
         for (Tile at : antsT) {
-            infUpdate(Tile.getTile(at.x, at.y), viewRadiusSteps, xt, yt, (ox, oy, i) -> borderMap[ox][oy] = -1, (ox, oy, i) -> {if (borderMap[ox][oy] == 0) borderMap[ox][oy] = 1;}, searched);
+            infUpdate(Tile.getTile(at.x, at.y), borderRadius, xt, yt, (ox, oy, i) -> {
+                if (euclDist[at.x][at.y][ox][oy] <= viewRadius2) {
+                    borderMap[ox][oy] = -1;
+                } else if (euclDist[at.x][at.y][ox][oy] == viewRadius2 + 1) {
+                    borderMap[ox][oy] = 1;
+                }
+            }, searched);
         }
 
         return borderMap;

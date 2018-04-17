@@ -18,7 +18,7 @@ public class Influence {
         void update(int x, int y, int i);
     }
 
-    public static void infUpdate(Tile tile, int depth, int xt, int yt, InfUpdate inUpdate, InfUpdate outUpdate, boolean[][] searched) {
+    public static void infUpdate(Tile tile, int depth, int xt, int yt, InfUpdate inUpdate, boolean[][] searched) {
         searched[tile.x][tile.y] = true;
 
         List<Tile> origins = Lists.newArrayList(tile);
@@ -43,10 +43,6 @@ public class Influence {
             }
 
             origins = nextLayer;
-        }
-
-        for (Tile o : origins) {
-            outUpdate.update(o.x, o.y, 0);
         }
     }
 

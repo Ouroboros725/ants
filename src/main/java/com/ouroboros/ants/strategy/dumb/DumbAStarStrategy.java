@@ -3,7 +3,6 @@ package com.ouroboros.ants.strategy.dumb;
 import com.google.common.collect.EvictingQueue;
 import com.ouroboros.ants.game.Global;
 import com.ouroboros.ants.game.Tile;
-import com.ouroboros.ants.game.TilePlayer;
 import com.ouroboros.ants.info.Turn;
 import com.ouroboros.ants.strategy.AbstractStrategy;
 import com.ouroboros.ants.utils.Move;
@@ -12,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import static com.ouroboros.ants.utils.Utils.distEucl2;
 import static com.ouroboros.ants.utils.Utils.nc;
@@ -54,12 +54,10 @@ public abstract class DumbAStarStrategy extends AbstractStrategy {
             ants[t.x][t.y] = true;
         }
 
-        for (TilePlayer h : turnInfo.hill) {
-            if (h.player == 0) {
-                ownHills.add(h.tile);
-            } else {
-                enemyHills.merge(h.tile, 2, Integer::sum);
-            }
+        ownHills.addAll(turnInfo.myHills.stream().collect(Collectors.toList()));
+
+        for (Tile h : turnInfo.oppHills) {
+            enemyHills.merge(h, 2, Integer::sum);
         }
 
         enemyHills.replaceAll((k, v) -> v - 1);

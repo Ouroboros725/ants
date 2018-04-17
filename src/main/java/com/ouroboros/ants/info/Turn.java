@@ -18,10 +18,12 @@ public class Turn implements Game {
 
     public List<Tile> water = new ArrayList<>();
     public List<Tile> food = new ArrayList<>();
-    public List<TilePlayer> hill = new ArrayList<>();
+    public List<Tile> myHills = new ArrayList<>();
+    public List<Tile> oppHills = new ArrayList<>();
+//    public List<TilePlayer> hill = new ArrayList<>();
     public List<Tile> myAnts = new ArrayList<>();
     public List<Tile> oppAnts = new ArrayList<>();
-    public List<TilePlayer> liveAnts = new ArrayList<>();
+//    public List<TilePlayer> liveAnts = new ArrayList<>();
     public List<TilePlayer> deadAnts = new ArrayList<>();
 
     public boolean gameEnd;
@@ -44,16 +46,22 @@ public class Turn implements Game {
                             food.add(Tile.getTile(x, y));
                             break;
                         case "h":
-                            hill.add(new TilePlayer(Tile.getTile(x, y), Integer.parseInt(tokens[3])));
+                            int ph = Integer.parseInt(tokens[3]);
+                            if (ph == 0) {
+                                myHills.add(Tile.getTile(x, y));
+                            } else {
+                                oppHills.add(Tile.getTile(x, y));
+                            }
+//                            hill.add(new TilePlayer(Tile.getTile(x, y), p));
                             break;
                         case "a":
-                            int p = Integer.parseInt(tokens[3]);
-                            if (p == 0) {
+                            int pa = Integer.parseInt(tokens[3]);
+                            if (pa == 0) {
                                 myAnts.add(Tile.getTile(x, y));
                             } else {
                                 oppAnts.add(Tile.getTile(x, y));
                             }
-                            liveAnts.add(new TilePlayer(Tile.getTile(x, y), p));
+//                            liveAnts.add(new TilePlayer(Tile.getTile(x, y), p));
                             break;
                         case "d":
                             deadAnts.add(new TilePlayer(Tile.getTile(x, y), Integer.parseInt(tokens[3])));
