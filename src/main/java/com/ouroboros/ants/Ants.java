@@ -16,7 +16,7 @@ public class Ants {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Ants.class);
 
-    public static final Executor executor = Executors.newFixedThreadPool(52, r -> {
+    public static final Executor executor = Executors.newFixedThreadPool(125, r -> {
         Thread t = new Thread(r);
         t.setDaemon(true);
         return t;

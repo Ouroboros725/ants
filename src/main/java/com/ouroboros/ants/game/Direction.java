@@ -40,10 +40,13 @@ public enum Direction {
         return null;
     }
 
+    private static final List<Direction> SHUFFLED_VALUES = Arrays.asList(Direction.values());
+
     public static List<Direction> getValuesRandom() {
-        List<Direction> values = Arrays.asList(Direction.values());
-        Collections.shuffle(values, ThreadLocalRandom.current());
-        return values;
+        if (ThreadLocalRandom.current().nextDouble() < 0.1d) {
+            Collections.shuffle(SHUFFLED_VALUES, ThreadLocalRandom.current());
+        }
+        return SHUFFLED_VALUES;
     }
 
     public char getChar() {

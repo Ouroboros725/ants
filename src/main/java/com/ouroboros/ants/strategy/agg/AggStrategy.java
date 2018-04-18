@@ -1,11 +1,14 @@
 package com.ouroboros.ants.strategy.agg;
 
+import com.google.common.collect.Lists;
 import com.ouroboros.ants.game.Global;
 import com.ouroboros.ants.game.Tile;
+import com.ouroboros.ants.game.TileDir;
 import com.ouroboros.ants.info.Turn;
 import com.ouroboros.ants.strategy.AbstractStrategy;
 import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.Search.DistCalc;
+import com.ouroboros.ants.utils.Utils;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -15,6 +18,7 @@ import java.util.function.Consumer;
 
 import static com.ouroboros.ants.Ants.executor;
 import static com.ouroboros.ants.utils.Influence.infUpdate;
+import static com.ouroboros.ants.utils.Search.shallowDFSBack;
 import static com.ouroboros.ants.utils.Utils.dist1D;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -43,6 +47,7 @@ public class AggStrategy extends AbstractStrategy {
     int spawnRadius;
     int defenceRadius;
     int borderRadius;
+    int attackHillRadius;
 
     int spawnInfRad;
     int[] spawnInf;
@@ -53,6 +58,10 @@ public class AggStrategy extends AbstractStrategy {
 
     int[][] visitInfMap;
     boolean[][] water;
+
+    boolean[][] movedAnts;
+
+    boolean[][] land;
 
     @Override
     protected void setupStrategy(Global gameStates) {
@@ -78,6 +87,8 @@ public class AggStrategy extends AbstractStrategy {
         visitInfMap = new int[xt][yt];
         water = new boolean[xt][yt];
 
+        land = new boolean[xt][yt];
+
         viewRadius2 = gameStates.viewRadius2;
         attackRadius2 = gameStates.attackRadius2;
         spawnRadius2 = gameStates.spawnRadius2;
@@ -85,6 +96,7 @@ public class AggStrategy extends AbstractStrategy {
         spawnRadius = (int) Math.sqrt(spawnRadius2);
         defenceRadius = (int) Math.ceil(Math.sqrt(attackRadius2 / 2.0d) * 2.0d);
         borderRadius = (int) Math.ceil(Math.sqrt(viewRadius2 / 2.0d) * 2.0d);
+        attackHillRadius = (int) Math.ceil(Math.sqrt(viewRadius2) * 2.0d);
 
         spawnInfRad = spawnRadius + 2;
         spawnInf = new int[spawnInfRad];
@@ -104,16 +116,27 @@ public class AggStrategy extends AbstractStrategy {
 
     @Override
     protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output) {
-        CompletableFuture<Void> waterUpdate = runAsync(() -> updateWater(turnInfo.water), executor);
-        CompletableFuture<Void> foodUpdate = runAsync(() -> updateFoodInfMap(turnInfo.food), executor);
-        CompletableFuture<int[][]> borderCalc = supplyAsync(() -> calcBorder(turnInfo.myAnts), executor);
-        CompletableFuture<int[][]> oppBorderCalc = supplyAsync(() -> calcBorder(turnInfo.oppAnts), executor);
-        CompletableFuture<boolean[][]> myAnts = supplyAsync(() -> getAntsMap(turnInfo.myAnts), executor);
-        CompletableFuture<boolean[][]> oppAnts = supplyAsync(() -> getAntsMap(turnInfo.oppAnts), executor);
+        if (!turnInfo.myAnts.isEmpty()) {
+            movedAnts = new boolean[xt][yt];
+
+            CompletableFuture<Void> waterUpdate = runAsync(() -> updateWater(turnInfo.water), executor);
+            CompletableFuture<Void> foodUpdate = runAsync(() -> updateFoodInfMap(turnInfo.food), executor);
+            CompletableFuture<int[][]> borderCalc = supplyAsync(() -> calcBorder(turnInfo.myAnts), executor);
+            CompletableFuture<int[][]> oppBorderCalc = supplyAsync(() -> calcBorder(turnInfo.oppAnts), executor);
+            CompletableFuture<boolean[][]> myAnts = supplyAsync(() -> getAntsMap(turnInfo.myAnts), executor);
+            CompletableFuture<boolean[][]> oppAnts = supplyAsync(() -> getAntsMap(turnInfo.oppAnts), executor);
+
+            CompletableFuture<boolean[][]> oppAttArea = supplyAsync(() -> getAntsDefenseInf(turnInfo.oppAnts), executor);
+            CompletableFuture<boolean[][]> noGoArea = waterUpdate.thenCombineAsync(oppAttArea, Utils::getSecondArg, executor)
+                    .thenComposeAsync(oaa -> supplyAsync(() -> getNoGoArea(oaa)), executor);
+
+            CompletableFuture<Void> attackHills = noGoArea.thenCombineAsync(myAnts, (ng, ants) -> Lists.newArrayList(ants, ng), executor)
+                    .thenComposeAsync(list -> runAsync(() -> attackHills(turnInfo.oppHills, list.get(0), turnInfo.myAnts.size(), list.get(1), output)), executor);
 
 
-        CompletableFuture<Void> attackHills = waterUpdate.thenCombineAsync(myAnts, (t, u) -> u, executor)
-                .thenComposeAsync(a -> runAsync(() -> attackHills(turnInfo.oppHills, a)), executor);
+            attackHills.thenRun(() -> {
+            });
+        }
 
     }
 
@@ -123,13 +146,13 @@ public class AggStrategy extends AbstractStrategy {
         }
     }
 
-    private boolean[][] getAntsAttackInf(List<Tile> antsT) {
+    private boolean[][] getAntsDefenseInf(List<Tile> antsT) {
         boolean[][] inf = new boolean[xt][yt];
         boolean[][] searched = new boolean[xt][yt];
 
         for (Tile at : antsT) {
             infUpdate(Tile.getTile(at.x, at.y), defenceRadius + 1, xt, yt, (ox, oy, i) -> {
-                if (euclDist[at.x][at.y][ox][oy] <= attackRadius2) {
+                if (euclDist[at.x][at.y][ox][oy] <= attackRadius2 + 1) {
                     inf[ox][oy] = true;
                 }
             }, searched);
@@ -138,8 +161,7 @@ public class AggStrategy extends AbstractStrategy {
         return inf;
     }
 
-    //TODO
-    private boolean[][] getNoGo(boolean[][] antsInf) {
+    private boolean[][] getNoGoArea(boolean[][] antsInf) {
         boolean[][] blocks = new boolean[xt][yt];
 
         for (int x = 0; x < xt; x++) {
@@ -161,7 +183,19 @@ public class AggStrategy extends AbstractStrategy {
         return antsMap;
     }
 
-    private void attackHills(List<Tile> hills, boolean[][] ants) {
+    private void attackHills(List<Tile> hills, boolean[][] ants, int antsNum, boolean[][] blocks, Consumer<Move> output) {
+        int hillNum = hills.size();
+        int pAttNum = (int) (antsNum * 0.1);
+        int attPHill = pAttNum / hillNum;
+        int attNum = attPHill < 5 ? attPHill : 5;
+
+        for (Tile hill : hills) {
+            List<TileDir> moves = shallowDFSBack(hill, ants, movedAnts, blocks, xt, yt, attackHillRadius, attNum);
+            for (TileDir td : moves) {
+                movedAnts[td.tile.x][td.tile.y] = true;
+                output.accept(new Move(td.tile.x, td.tile.y, td.direction.getChar()));
+            }
+        }
 
     }
 
@@ -169,7 +203,7 @@ public class AggStrategy extends AbstractStrategy {
 
     }
 
-    private void food() {
+    private void spawnFood() {
         // update influence map
         // find key locations
         // find candidate ants
@@ -216,7 +250,7 @@ public class AggStrategy extends AbstractStrategy {
             infUpdate(Tile.getTile(at.x, at.y), borderRadius, xt, yt, (ox, oy, i) -> {
                 if (euclDist[at.x][at.y][ox][oy] <= viewRadius2) {
                     borderMap[ox][oy] = -1;
-                } else if (euclDist[at.x][at.y][ox][oy] == viewRadius2 + 1) {
+                } else {
                     borderMap[ox][oy] = 1;
                 }
             }, searched);
@@ -235,5 +269,19 @@ public class AggStrategy extends AbstractStrategy {
                 visitInfMap[x][y]++;
             }
         }
+    }
+
+    private void updateLand(int[][] borders) {
+        for (int x = 0; x < xt; x++) {
+            for (int y = 0; y < yt; y++) {
+                if (borders[x][y] < 0 && !water[x][y]) {
+                    land[x][y] = true;
+                }
+            }
+        }
+    }
+
+    private void preCalcEucl() {
+
     }
 }

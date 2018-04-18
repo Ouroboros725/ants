@@ -5,7 +5,7 @@ import com.ouroboros.ants.game.TilePlayer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -16,15 +16,15 @@ public class Turn implements Game {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Turn.class);
 
-    public List<Tile> water = new ArrayList<>();
-    public List<Tile> food = new ArrayList<>();
-    public List<Tile> myHills = new ArrayList<>();
-    public List<Tile> oppHills = new ArrayList<>();
-//    public List<TilePlayer> hill = new ArrayList<>();
-    public List<Tile> myAnts = new ArrayList<>();
-    public List<Tile> oppAnts = new ArrayList<>();
-//    public List<TilePlayer> liveAnts = new ArrayList<>();
-    public List<TilePlayer> deadAnts = new ArrayList<>();
+    public List<Tile> water = new LinkedList<>();
+    public List<Tile> food = new LinkedList<>();
+    public List<Tile> myHills = new LinkedList<>();
+    public List<Tile> oppHills = new LinkedList<>();
+//    public List<TilePlayer> hill = new LinkedList<>();
+    public List<Tile> myAnts = new LinkedList<>();
+    public List<Tile> oppAnts = new LinkedList<>();
+//    public List<TilePlayer> liveAnts = new LinkedList<>();
+    public List<TilePlayer> deadAnts = new LinkedList<>();
 
     public boolean gameEnd;
 

@@ -22,7 +22,7 @@ public class Search {
         boolean[][] searched = new boolean[xt][yt];
         searched[origin.x][origin.y] = true;
 
-        Multimap<Direction, Tile> dirTargets = MultimapBuilder.enumKeys(Direction.class).arrayListValues().build();
+        Multimap<Direction, Tile> dirTargets = MultimapBuilder.enumKeys(Direction.class).linkedListValues().build();
         for (Direction d : Direction.values()) {
             int[] co = d.getNeighbour(origin.x, origin.y, xt, yt);
             int x = co[0];
@@ -34,7 +34,7 @@ public class Search {
         for (int i = 1; i < depth; i++) {
             for (Direction d : Direction.values()) {
                 Collection<Tile> origins = dirTargets.get(d);
-                List<Tile> nextLayer = new ArrayList<>(2 * i + 1);
+                List<Tile> nextLayer = new LinkedList<>();
 
                 for (Tile o : origins) {
                     for (Direction od : Direction.values()) {
@@ -70,20 +70,20 @@ public class Search {
         return dirTargets;
     }
 
-    public static TileDir shallowDFS(Tile origin, boolean[][] targets, boolean[][] blocks,
+    public static TileDir shallowDFS(Tile origin, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
                                          int xt, int yt, int depth) {
         boolean[][] searched = new boolean[xt][yt];
         searched[origin.x][origin.y] = true;
 
         List<TileDir> results = new ArrayList<>();
 
-        Multimap<Direction, Tile> dirTargets = MultimapBuilder.enumKeys(Direction.class).arrayListValues().build();
-        for (Direction d : Direction.values()) {
+        Multimap<Direction, Tile> dirTargets = MultimapBuilder.enumKeys(Direction.class).linkedListValues().build();
+        for (Direction d : Direction.getValuesRandom()) {
             int[] co = d.getNeighbour(origin.x, origin.y, xt, yt);
             int x = co[0];
             int y = co[1];
 
-            if (targets[x][y]) {
+            if (targets[x][y] && !excludeTgts[x][y]) {
                 results.add(TileDir.getTileDir(origin, d));
                 continue;
             }
@@ -96,11 +96,11 @@ public class Search {
 
         if (results.isEmpty()) {
             for (int i = 1; i < depth; i++) {
-                for (Direction d : Direction.values()) {
+                for (Direction d : Direction.getValuesRandom()) {
                     Collection<Tile> origins = dirTargets.get(d);
-                    List<Tile> nextLayer = new ArrayList<>(2 * i + 1);
+                    List<Tile> nextLayer = new LinkedList<>();
 
-                    List<TileDir> dt = nextLayer(origins, targets, blocks, xt, yt, searched, nextLayer);
+                    List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer);
                     if (!dt.isEmpty()) {
                         results.add(TileDir.getTileDir(origin, d));
                         continue;
@@ -124,42 +124,48 @@ public class Search {
         return null;
     }
 
-    public static TileDir shallowDFSBack(Tile origin, boolean[][] targets, boolean[][] blocks,
-                                  int xt, int yt, int depth) {
+    public static List<TileDir> shallowDFSBack(Tile origin, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
+                                  int xt, int yt, int depth, int count) {
         boolean[][] searched = new boolean[xt][yt];
         searched[origin.x][origin.y] = true;
 
         List<Tile> origins = Lists.newArrayList(origin);
+        List<TileDir> results = new LinkedList<>();
 
         for (int i = 0; i < depth; i++) {
-            List<Tile> nextLayer = new ArrayList<>(i * 4);
+            List<Tile> nextLayer = new LinkedList<>();
 
-            List<TileDir> dt = nextLayer(origins, targets, blocks, xt, yt, searched, nextLayer);
+            List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer);
             if (!dt.isEmpty()) {
-                return getRandomElement(dt);
+                if (dt.size() + results.size() < count) {
+                    results.addAll(dt);
+                } else {
+                    results.addAll(dt.subList(0, count - results.size()));
+                    return results;
+                }
             }
 
             origins = nextLayer;
         }
 
-        return null;
+        return results;
     }
 
     /**
      * TODO shuffle the directions instead of searching the whole layer and randomly picking one
      * TODO use set instead of sparse vector for tracking searched
      */
-    private static List<TileDir> nextLayer(Collection<Tile> origins, boolean[][] targets, boolean[][] blocks,
+    private static List<TileDir> nextLayer(Collection<Tile> origins, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
                                      int xt, int yt, boolean[][] searched, List<Tile> nextLayer) {
-        List<TileDir> results = new ArrayList<>();
+        List<TileDir> results = new LinkedList<>();
 
         for (Tile origin : origins) {
-            for (Direction d : Direction.values()) {
+            for (Direction d : Direction.getValuesRandom()) {
                 int[] co = d.getNeighbour(origin.x, origin.y, xt, yt);
                 int x = co[0];
                 int y = co[1];
 
-                if (targets[x][y]) {
+                if (targets[x][y] && !excludeTgts[x][y]) {
                     results.add(TileDir.getTileDir(Tile.getTile(x, y), getOppoDir(d)));
                     continue;
                 }
@@ -190,7 +196,7 @@ public class Search {
         List<TileDir> td = new ArrayList<>();
 
         for (Tile tile : targets) {
-            for (Direction d : Direction.values()) {
+            for (Direction d : Direction.getValuesRandom()) {
                 int[] co = d.getNeighbour(origin.x, origin.y, xt, yt);
                 int x = co[0];
                 int y = co[1];

@@ -4,7 +4,7 @@ import com.google.common.collect.Lists;
 import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Tile;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -23,7 +23,7 @@ public class Influence {
 
         List<Tile> origins = Lists.newArrayList(tile);
         for (int i = 0; i < depth; i++) {
-            List<Tile> nextLayer = new ArrayList<>(4 * (i + 1));
+            List<Tile> nextLayer = new LinkedList<>();
 
             for (Tile o : origins) {
                 inUpdate.update(o.x, o.y, i);

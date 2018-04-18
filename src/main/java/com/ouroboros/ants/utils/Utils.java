@@ -44,4 +44,7 @@ public class Utils {
         return list.get(i);
     }
 
+    public static <T, U> U getSecondArg(T arg1, U arg2) {
+        return arg2;
+    }
 }

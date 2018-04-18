@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -36,7 +36,7 @@ public class Botxy implements Bot {
     public void run() {
         Input input;
         do {
-            List<String> states = new ArrayList<>();
+            List<String> states = new LinkedList<>();
             input = turnExec.update(states);
 
             switch (input) {
