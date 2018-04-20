@@ -18,7 +18,14 @@ public class Ants {
 
     public static final Executor executor = Executors.newFixedThreadPool(125, r -> {
         Thread t = new Thread(r);
+        t.setPriority(Thread.MAX_PRIORITY);
+        return t;
+    });
+
+    public static final Executor daemonExecutor = Executors.newFixedThreadPool(5, r -> {
+        Thread t = new Thread(r);
         t.setDaemon(true);
+        t.setPriority(Thread.MIN_PRIORITY);
         return t;
     });
 

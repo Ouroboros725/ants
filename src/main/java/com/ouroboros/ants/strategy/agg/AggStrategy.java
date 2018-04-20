@@ -4,11 +4,14 @@ import com.google.common.collect.Lists;
 import com.ouroboros.ants.game.Global;
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.game.TileDir;
+import com.ouroboros.ants.game.TileLink;
 import com.ouroboros.ants.info.Turn;
 import com.ouroboros.ants.strategy.AbstractStrategy;
 import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.Search.DistCalc;
 import com.ouroboros.ants.utils.Utils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -17,7 +20,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import static com.ouroboros.ants.Ants.executor;
+import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.*;
 import static com.ouroboros.ants.utils.Influence.infUpdate;
+import static com.ouroboros.ants.utils.Search.findPath;
 import static com.ouroboros.ants.utils.Search.shallowDFSBack;
 import static com.ouroboros.ants.utils.Utils.dist1D;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -31,37 +36,30 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 @Component
 public class AggStrategy extends AbstractStrategy {
 
-    int xt;
-    int yt;
+    private static final Logger LOGGER = LoggerFactory.getLogger(AggStrategy.class);
 
-    int[][][][] euclDist;
-    int[][][][] manhDist;
+    private int xt;
+    private int yt;
+
+    private int[][][][] euclDist;
+    private int[][][][] manhDist;
 
     DistCalc euclDistCalc = (x1, y1, x2, y2) -> euclDist[x1][y1][x2][y2];
     DistCalc manhDistCalc = (x1, y1, x2, y2) -> manhDist[x1][y1][x2][y2];
 
-    int viewRadius2;
-    int attackRadius2;
-    int spawnRadius2;
+    private int  viewRadius2;
+    private int  attackRadius2;
+    private int  spawnRadius2;
 
-    int spawnRadius;
-    int defenceRadius;
-    int borderRadius;
-    int attackHillRadius;
+    private int  spawnRadius;
+    private int  defenceRadius;
+    private int  borderRadius;
+    private int  attackHillRadius;
 
-    int spawnInfRad;
-    int[] spawnInf;
-    int[] spawnAccInf;
-    int[][] spawnDecInf;
-    int[][] foodInfMap;
-    int[][] foodInfCnt;
-
-    int[][] visitInfMap;
-    boolean[][] water;
-
-    boolean[][] movedAnts;
-
-    boolean[][] land;
+    private int  spawnInfRad;
+    private int[] spawnInf;
+    private int[] spawnAccInf;
+    private int[][] spawnDecInf;
 
     @Override
     protected void setupStrategy(Global gameStates) {
@@ -83,11 +81,6 @@ public class AggStrategy extends AbstractStrategy {
                 }
             }
         }
-
-        visitInfMap = new int[xt][yt];
-        water = new boolean[xt][yt];
-
-        land = new boolean[xt][yt];
 
         viewRadius2 = gameStates.viewRadius2;
         attackRadius2 = gameStates.attackRadius2;
@@ -112,12 +105,22 @@ public class AggStrategy extends AbstractStrategy {
         for (int i = 0; i < 100; i++) {
             spawnDecInf[i] = spawnDecCalc(i);
         }
+
+        setVisitInfMap(new int[xt][yt]);
+        setWater(new boolean[xt][yt]);
+        setLand(new boolean[xt][yt]);
+
+        setPathsDict(new TileLink[xt][yt][xt][yt]);
+        setPathsDist(new int[xt][yt][xt][yt]);
+
+        setFoodInfCnt(new int[xt][yt]);
+        setFoodInfMap(new int[xt][yt]);
     }
 
     @Override
     protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output) {
         if (!turnInfo.myAnts.isEmpty()) {
-            movedAnts = new boolean[xt][yt];
+            initMovedAnts(xt, yt);
 
             CompletableFuture<Void> waterUpdate = runAsync(() -> updateWater(turnInfo.water), executor);
             CompletableFuture<Void> foodUpdate = runAsync(() -> updateFoodInfMap(turnInfo.food), executor);
@@ -141,9 +144,11 @@ public class AggStrategy extends AbstractStrategy {
     }
 
     private void updateWater(List<Tile> waterT) {
+        boolean[][] water = getWater();
         for (Tile w : waterT) {
             water[w.x][w.y] = true;
         }
+        setWater(water);
     }
 
     private boolean[][] getAntsDefenseInf(List<Tile> antsT) {
@@ -162,6 +167,8 @@ public class AggStrategy extends AbstractStrategy {
     }
 
     private boolean[][] getNoGoArea(boolean[][] antsInf) {
+        boolean[][] water = getWater();
+
         boolean[][] blocks = new boolean[xt][yt];
 
         for (int x = 0; x < xt; x++) {
@@ -184,6 +191,8 @@ public class AggStrategy extends AbstractStrategy {
     }
 
     private void attackHills(List<Tile> hills, boolean[][] ants, int antsNum, boolean[][] blocks, Consumer<Move> output) {
+        boolean[][] movedAnts = getMovedAnts();
+
         int hillNum = hills.size();
         int pAttNum = (int) (antsNum * 0.1);
         int attPHill = pAttNum / hillNum;
@@ -197,6 +206,7 @@ public class AggStrategy extends AbstractStrategy {
             }
         }
 
+        setMovedAnts(movedAnts);
     }
 
     private void defendHills(List<Tile> hills, List<Tile> oppAnts) {
@@ -211,6 +221,9 @@ public class AggStrategy extends AbstractStrategy {
     }
 
     private void updateFoodInfMap(List<Tile> foodT) {
+        int[][] foodInfCnt = getFoodInfCnt();
+        int[][] foodInfMap = getFoodInfMap();
+
         boolean[][] food = new boolean[xt][yt];
         for (Tile t : foodT) {
             food[t.x][t.y] = true;
@@ -229,6 +242,9 @@ public class AggStrategy extends AbstractStrategy {
                 }
             }
         }
+
+        setFoodInfCnt(foodInfCnt);
+        setFoodInfMap(foodInfMap);
     }
 
     private int[] spawnDecCalc(int cnt) {
@@ -260,6 +276,8 @@ public class AggStrategy extends AbstractStrategy {
     }
 
     private void updateVisitInfMap(int[][] borderMap) {
+        int[][] visitInfMap = getVisitInfMap();
+
         for (int x = 0; x < xt; x++) {
             for (int y = 0; y < yt; y++) {
                 if (borderMap[x][y] < 0) {
@@ -269,9 +287,14 @@ public class AggStrategy extends AbstractStrategy {
                 visitInfMap[x][y]++;
             }
         }
+
+        setVisitInfMap(visitInfMap);
     }
 
     private void updateLand(int[][] borders) {
+        boolean[][] land = getLand();
+        boolean[][] water = getWater();
+
         for (int x = 0; x < xt; x++) {
             for (int y = 0; y < yt; y++) {
                 if (borders[x][y] < 0 && !water[x][y]) {
@@ -279,9 +302,93 @@ public class AggStrategy extends AbstractStrategy {
                 }
             }
         }
+
+        setLand(land);
     }
 
     private void preCalcEucl() {
+        boolean[][] land = getLand();
+        boolean[][] water = getWater();
 
+        TileLink[][][][] pathsDict = getPathsDict();
+        int[][][][] pathsDist = getPathsDist();
+
+        boolean finished = false;
+
+        while (!finished) {
+            boolean ready = true;
+            for (int x = 0; x < xt; x++) {
+                for (int y = 0; y < yt; y++) {
+                    if (!land[x][y] && !water[x][y]) {
+                        ready = false;
+                        break;
+                    }
+                }
+            }
+
+            if (ready) {
+                for (int x1 = 0; x1 < xt; x1++) {
+                    for (int y1 = 0; y1 < yt; y1++) {
+                        for (int x2 = 0; x2 < xt; x2++) {
+                            for (int y2 = 0; y2 < yt; y2++) {
+                                if (!water[x1][y1] && !water[x2][y2] && pathsDict[x1][y1][x2][y2] == null) {
+                                    findShortestPath(Tile.getTile(x1, y1), Tile.getTile(x2, y2), land, pathsDict, pathsDist);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                finished = true;
+            } else {
+                try {
+                    Thread.sleep(5000l);
+                } catch (InterruptedException e) {
+                    LOGGER.error("Path calculation thread interrupted.", e);
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+
+        setPathsDict(pathsDict);
+        setPathsDist(pathsDist);
+    }
+
+    private void findShortestPath(Tile t1, Tile t2, boolean[][] land, TileLink[][][][] pathsDict, int[][][][] pathsDist) {
+        TileLink start = findPath(t1, t2, land, xt, yt);
+
+        TileLink reverse = reversePath(start);
+        populatePathsDict(start, pathsDict, pathsDist);
+        populatePathsDict(reverse, pathsDict, pathsDist);
+    }
+
+    private TileLink reversePath(TileLink link) {
+        TileLink last = null;
+        TileLink next = link;
+        do {
+            TileLink current = new TileLink(link.current, null, last);
+            if (last != null) {
+                last.last = current;
+            }
+
+            last = current;
+            next = next.next;
+        } while (next != null);
+
+        return last;
+    }
+
+    private void populatePathsDict(TileLink link, TileLink[][][][] pathsDict, int[][][][] pathsDist) {
+        while (link.next != null) {
+            TileLink next = link.next;
+            int d = 1;
+            do {
+                pathsDict[link.current.x][link.current.y][next.current.x][next.current.y] = next;
+                pathsDist[link.current.x][link.current.y][next.current.x][next.current.y] = d;
+                next = next.next;
+                d++;
+            } while (next != null);
+            link = link.next;
+        }
     }
 }

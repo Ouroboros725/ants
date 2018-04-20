@@ -6,6 +6,7 @@ import com.google.common.collect.MultimapBuilder;
 import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.game.TileDir;
+import com.ouroboros.ants.game.TileLink;
 
 import java.util.*;
 
@@ -17,6 +18,10 @@ import static com.ouroboros.ants.utils.Utils.getRandomElement;
  *
  */
 public class Search {
+
+    private Search() {
+        throw new IllegalStateException("Utility class");
+    }
 
     public static Multimap<Direction, Tile> floodFill(Tile origin, boolean[][] blocks, int xt, int yt, int depth) {
         boolean[][] searched = new boolean[xt][yt];
@@ -185,6 +190,53 @@ public class Search {
         }
 
         return results;
+    }
+
+    public static TileLink findPath(Tile origin, Tile target, boolean[][] land, int xt, int yt) {
+        boolean[][] searched = new boolean[xt][yt];
+        FindPathResult result = findPath(Lists.newArrayList(origin), target, land, searched, xt, yt);
+        return result.link;
+    }
+
+    private static class FindPathResult {
+        TileLink link;
+        Tile tile;
+
+        FindPathResult(TileLink link, Tile tile) {
+            this.link = link;
+            this.tile = tile;
+        }
+    }
+
+    private static FindPathResult findPath(List<Tile> origins, Tile target, boolean[][] land, boolean[][] searched, int xt, int yt) {
+        List<Tile> tiles = new LinkedList<>();
+        Map<Tile, Tile> backLookup = new HashMap<>();
+        for (Tile tile : origins) {
+            for (Direction d : Direction.getValuesRandom()) {
+                int[] co = d.getNeighbour(tile.x, tile.y, xt, yt);
+                int x = co[0];
+                int y = co[1];
+
+                if (!searched[x][y] && land[x][y]) {
+                    Tile t = Tile.getTile(x, y);
+                    if (t == target) {
+                        return new FindPathResult(new TileLink(t, null, null), tile);
+                    } else {
+                        tiles.add(t);
+                    }
+                    searched[x][y] = true;
+                    backLookup.put(t, tile);
+                }
+            }
+        }
+
+        FindPathResult fr = findPath(tiles, target, land, searched, xt, yt);
+        Tile last = backLookup.get(fr.tile);
+
+        TileLink result = new TileLink(fr.tile, null, fr.link);
+        fr.link.last = result;
+
+        return new FindPathResult(result, last);
     }
 
     public interface DistCalc {

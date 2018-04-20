@@ -17,14 +17,6 @@ public enum Direction {
     WEST('w', (x, y, xt, yt) -> {int[] n = new int[2]; n[0] = nc(x - 1, xt); n[1] = y; return n;}),
     NORTH('n', (x, y, xt, yt) -> {int[] n = new int[2]; n[0] = x; n[1] = nc(y - 1, yt); return n;});
 
-    private char c;
-    private NeighbourGetter getter;
-
-    Direction(char c, NeighbourGetter neighbourGetter) {
-        this.c = c;
-        this.getter = neighbourGetter;
-    }
-
     public static Direction getOppoDir(Direction dir) {
         switch (dir) {
             case EAST:
@@ -40,6 +32,26 @@ public enum Direction {
         return null;
     }
 
+    public static Direction getDirection(Tile t1, Tile t2, int xt, int yt) {
+        if (t1.x == t2.x) {
+            int yd = t1.y - t2.y;
+            if (yd == 1 || yd == 1 - yt) {
+                return NORTH;
+            } else if (yd == -1 || yd == yt - 1) {
+                return SOUTH;
+            }
+        } else if (t1.y == t2.y) {
+            int xd = t1.x - t2.x;
+            if (xd == 1 || xd == 1 - xt) {
+                return WEST;
+            } else if (xd == -1 || xd == xt - 1) {
+                return EAST;
+            }
+        }
+
+        return null;
+    }
+
     private static final List<Direction> SHUFFLED_VALUES = Arrays.asList(Direction.values());
 
     public static List<Direction> getValuesRandom() {
@@ -47,6 +59,14 @@ public enum Direction {
             Collections.shuffle(SHUFFLED_VALUES, ThreadLocalRandom.current());
         }
         return SHUFFLED_VALUES;
+    }
+
+    private char c;
+    private NeighbourGetter getter;
+
+    Direction(char c, NeighbourGetter neighbourGetter) {
+        this.c = c;
+        this.getter = neighbourGetter;
     }
 
     public char getChar() {
