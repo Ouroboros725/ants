@@ -1,10 +1,7 @@
 package com.ouroboros.ants.strategy.agg;
 
 import com.google.common.collect.Lists;
-import com.ouroboros.ants.game.Global;
-import com.ouroboros.ants.game.Tile;
-import com.ouroboros.ants.game.TileDir;
-import com.ouroboros.ants.game.TileLink;
+import com.ouroboros.ants.game.*;
 import com.ouroboros.ants.info.Turn;
 import com.ouroboros.ants.strategy.AbstractStrategy;
 import com.ouroboros.ants.utils.Move;
@@ -15,16 +12,19 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 import static com.ouroboros.ants.Ants.executor;
+import static com.ouroboros.ants.Ants.scheduler;
 import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.*;
 import static com.ouroboros.ants.utils.Influence.infUpdate;
 import static com.ouroboros.ants.utils.Search.findPath;
 import static com.ouroboros.ants.utils.Search.shallowDFSBack;
 import static com.ouroboros.ants.utils.Utils.dist1D;
+import static com.ouroboros.ants.utils.Utils.getSecondArg;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
@@ -47,14 +47,15 @@ public class AggStrategy extends AbstractStrategy {
     DistCalc euclDistCalc = (x1, y1, x2, y2) -> euclDist[x1][y1][x2][y2];
     DistCalc manhDistCalc = (x1, y1, x2, y2) -> manhDist[x1][y1][x2][y2];
 
-    private int  viewRadius2;
-    private int  attackRadius2;
-    private int  spawnRadius2;
+    private int viewRadius2;
+    private int attackRadius2;
+    private int spawnRadius2;
 
-    private int  spawnRadius;
-    private int  defenceRadius;
-    private int  borderRadius;
-    private int  attackHillRadius;
+    private int spawnRadius;
+    private int defenceRadius;
+    private int borderRadius;
+    private int attackHillRadius;
+    private int getFoodRadius;
 
     private int  spawnInfRad;
     private int[] spawnInf;
@@ -90,6 +91,7 @@ public class AggStrategy extends AbstractStrategy {
         defenceRadius = (int) Math.ceil(Math.sqrt(attackRadius2 / 2.0d) * 2.0d);
         borderRadius = (int) Math.ceil(Math.sqrt(viewRadius2 / 2.0d) * 2.0d);
         attackHillRadius = (int) Math.ceil(Math.sqrt(viewRadius2) * 2.0d);
+        getFoodRadius = (int) Math.ceil(Math.sqrt(viewRadius2 / 2.0d) * 2.0d);
 
         spawnInfRad = spawnRadius + 2;
         spawnInf = new int[spawnInfRad];
@@ -115,6 +117,10 @@ public class AggStrategy extends AbstractStrategy {
 
         setFoodInfCnt(new int[xt][yt]);
         setFoodInfMap(new int[xt][yt]);
+
+        LOGGER.info("123");
+
+        scheduler.scheduleAtFixedRate(this::preCalcEucl, gameStates.turnTime * 50, gameStates.turnTime * 10, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -123,27 +129,47 @@ public class AggStrategy extends AbstractStrategy {
             initMovedAnts(xt, yt);
 
             CompletableFuture<Void> waterUpdate = runAsync(() -> updateWater(turnInfo.water), executor);
-            CompletableFuture<Void> foodUpdate = runAsync(() -> updateFoodInfMap(turnInfo.food), executor);
-            CompletableFuture<int[][]> borderCalc = supplyAsync(() -> calcBorder(turnInfo.myAnts), executor);
-            CompletableFuture<int[][]> oppBorderCalc = supplyAsync(() -> calcBorder(turnInfo.oppAnts), executor);
-            CompletableFuture<boolean[][]> myAnts = supplyAsync(() -> getAntsMap(turnInfo.myAnts), executor);
-            CompletableFuture<boolean[][]> oppAnts = supplyAsync(() -> getAntsMap(turnInfo.oppAnts), executor);
 
-            CompletableFuture<boolean[][]> oppAttArea = supplyAsync(() -> getAntsDefenseInf(turnInfo.oppAnts), executor);
+            CompletableFuture<boolean[][]> myAnts = supplyAsync(() -> getAntsMap(turnInfo.myAnts), executor);
+
+            CompletableFuture<boolean[][]> oppAttArea = supplyAsync(() -> getAntsAttackArea(turnInfo.oppAnts), executor);
             CompletableFuture<boolean[][]> noGoArea = waterUpdate.thenCombineAsync(oppAttArea, Utils::getSecondArg, executor)
-                    .thenComposeAsync(oaa -> supplyAsync(() -> getNoGoArea(oaa)), executor);
+                    .thenComposeAsync(oaa -> supplyAsync(() -> getTabooArea(oaa)), executor);
 
             CompletableFuture<Void> attackHills = noGoArea.thenCombineAsync(myAnts, (ng, ants) -> Lists.newArrayList(ants, ng), executor)
                     .thenComposeAsync(list -> runAsync(() -> attackHills(turnInfo.oppHills, list.get(0), turnInfo.myAnts.size(), list.get(1), output)), executor);
 
 
-            attackHills.thenRun(() -> {
-            });
+            CompletableFuture<Void> updateFoodInf = runAsync(() -> updateFoodInfMap(turnInfo.food), executor);
+            CompletableFuture<List<Tile>> tgtFood = updateFoodInf.thenComposeAsync(v -> supplyAsync(this::calcTargetFood), executor);
+            CompletableFuture<Void> spawnFood = null;
+
+
+
+            CompletableFuture<boolean[][]> oppAnts = supplyAsync(() -> getAntsMap(turnInfo.oppAnts), executor);
+
+            CompletableFuture<int[][]> borderCalc = supplyAsync(() -> calcBorder(turnInfo.myAnts), executor);
+            CompletableFuture<int[][]> oppBorderCalc = supplyAsync(() -> calcBorder(turnInfo.oppAnts), executor);
+
+            attackHills.exceptionally(ex -> {LOGGER.error("Agg strategy failed.", ex); return null;});
         }
 
     }
 
+    private void moveAnt(Move move, boolean[][] movedAnts, Consumer<Move> output) {
+        movedAnts[move.x][move.y] = true;
+        output.accept(move);
+    }
+
     private void updateWater(List<Tile> waterT) {
+        if (isMapKnown()) {
+            return;
+        }
+
+        if (waterT.isEmpty()) {
+            return;
+        }
+
         boolean[][] water = getWater();
         for (Tile w : waterT) {
             water[w.x][w.y] = true;
@@ -151,7 +177,7 @@ public class AggStrategy extends AbstractStrategy {
         setWater(water);
     }
 
-    private boolean[][] getAntsDefenseInf(List<Tile> antsT) {
+    private boolean[][] getAntsAttackArea(List<Tile> antsT) {
         boolean[][] inf = new boolean[xt][yt];
         boolean[][] searched = new boolean[xt][yt];
 
@@ -166,7 +192,7 @@ public class AggStrategy extends AbstractStrategy {
         return inf;
     }
 
-    private boolean[][] getNoGoArea(boolean[][] antsInf) {
+    private boolean[][] getTabooArea(boolean[][] antsInf) {
         boolean[][] water = getWater();
 
         boolean[][] blocks = new boolean[xt][yt];
@@ -191,33 +217,28 @@ public class AggStrategy extends AbstractStrategy {
     }
 
     private void attackHills(List<Tile> hills, boolean[][] ants, int antsNum, boolean[][] blocks, Consumer<Move> output) {
-        boolean[][] movedAnts = getMovedAnts();
-
         int hillNum = hills.size();
-        int pAttNum = (int) (antsNum * 0.1);
-        int attPHill = pAttNum / hillNum;
-        int attNum = attPHill < 5 ? attPHill : 5;
 
-        for (Tile hill : hills) {
-            List<TileDir> moves = shallowDFSBack(hill, ants, movedAnts, blocks, xt, yt, attackHillRadius, attNum);
-            for (TileDir td : moves) {
-                movedAnts[td.tile.x][td.tile.y] = true;
-                output.accept(new Move(td.tile.x, td.tile.y, td.direction.getChar()));
+        if (hillNum > 0) {
+            boolean[][] movedAnts = getMovedAnts();
+
+            int pAttNum = (int) (antsNum * 0.1);
+            int attPHill = pAttNum / hillNum;
+            int attNum = attPHill < 5 ? attPHill : 5;
+
+            for (Tile hill : hills) {
+                List<TileDir> moves = shallowDFSBack(hill, ants, movedAnts, blocks, xt, yt, attackHillRadius, attNum);
+                for (TileDir td : moves) {
+                    moveAnt(new Move(td.tile.x, td.tile.y, td.direction.getChar()), movedAnts, output);
+                }
             }
-        }
 
-        setMovedAnts(movedAnts);
+            setMovedAnts(movedAnts);
+        }
     }
 
     private void defendHills(List<Tile> hills, List<Tile> oppAnts) {
 
-    }
-
-    private void spawnFood() {
-        // update influence map
-        // find key locations
-        // find candidate ants
-        // ants find food
     }
 
     private void updateFoodInfMap(List<Tile> foodT) {
@@ -245,6 +266,68 @@ public class AggStrategy extends AbstractStrategy {
 
         setFoodInfCnt(foodInfCnt);
         setFoodInfMap(foodInfMap);
+    }
+
+    private List<Tile> calcTargetFood() {
+        int[][] foodInfMap = getFoodInfMap();
+
+        List<TilePriority> foodList = new ArrayList<>();
+        for (int x = 0; x < xt; x++) {
+            for (int y = 0; y < yt; y++) {
+                if (foodInfMap[x][y] >= spawnInf[0]) {
+                    foodList.add(new TilePriority(Tile.getTile(x, y), foodInfMap[x][y]));
+                }
+            }
+        }
+
+        Collections.sort(foodList, Collections.reverseOrder());
+
+        List<Tile> foodResult = new LinkedList<>();
+        for (TilePriority tp : foodList) {
+            if (!foodTileCovered(tp.tile, tp.priority, foodInfMap, spawnRadius)) {
+                foodResult.add(tp.tile);
+            }
+        }
+
+        return foodResult;
+    }
+
+    private boolean foodTileCovered(Tile tile, int priority, int[][] foodInfMap, int depth) {
+        if (depth == 0) {
+            return false;
+        }
+
+        for (Direction d : Direction.values()) {
+            Tile dt = d.getNeighbour(tile.x, tile.y, xt, yt);
+            if (foodInfMap[dt.x][dt.y] > priority) {
+                return true;
+            } else {
+                boolean dr = foodTileCovered(dt, priority, foodInfMap, depth - 1);
+                if (dr) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void spawnFood(List<Tile> foodList, boolean[][] ants, boolean[][] blocks, Consumer<Move> output) {
+        if (!foodList.isEmpty()) {
+            boolean[][] movedAnts = getMovedAnts();
+
+            Set<Tile> tgtAnts = new HashSet<>();
+
+            for (Tile t : foodList) {
+                List<TileDir> tds = shallowDFSBack(t, ants, movedAnts, blocks, xt, yt, getFoodRadius, 1);
+                if (!tds.isEmpty()) {
+                    for (TileDir td : tds) {
+                        moveAnt(new Move(td.tile.x, td.tile.y, td.direction.getChar()), movedAnts, output);
+                    }
+                }
+            }
+
+        }
     }
 
     private int[] spawnDecCalc(int cnt) {
@@ -313,45 +396,41 @@ public class AggStrategy extends AbstractStrategy {
         TileLink[][][][] pathsDict = getPathsDict();
         int[][][][] pathsDist = getPathsDist();
 
-        boolean finished = false;
 
-        while (!finished) {
-            boolean ready = true;
-            for (int x = 0; x < xt; x++) {
-                for (int y = 0; y < yt; y++) {
-                    if (!land[x][y] && !water[x][y]) {
-                        ready = false;
-                        break;
-                    }
-                }
-            }
-
-            if (ready) {
-                for (int x1 = 0; x1 < xt; x1++) {
-                    for (int y1 = 0; y1 < yt; y1++) {
-                        for (int x2 = 0; x2 < xt; x2++) {
-                            for (int y2 = 0; y2 < yt; y2++) {
-                                if (!water[x1][y1] && !water[x2][y2] && pathsDict[x1][y1][x2][y2] == null) {
-                                    findShortestPath(Tile.getTile(x1, y1), Tile.getTile(x2, y2), land, pathsDict, pathsDist);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                finished = true;
-            } else {
-                try {
-                    Thread.sleep(5000l);
-                } catch (InterruptedException e) {
-                    LOGGER.error("Path calculation thread interrupted.", e);
-                    Thread.currentThread().interrupt();
+        boolean ready = true;
+        for (int x = 0; x < xt; x++) {
+            for (int y = 0; y < yt; y++) {
+                if (!land[x][y] && !water[x][y]) {
+                    ready = false;
+                    break;
                 }
             }
         }
 
-        setPathsDict(pathsDict);
-        setPathsDist(pathsDist);
+        if (ready) {
+            LOGGER.debug("paths calculation starts.");
+
+            setMapKnown(true);
+
+            for (int x1 = 0; x1 < xt; x1++) {
+                for (int y1 = 0; y1 < yt; y1++) {
+                    for (int x2 = 0; x2 < xt; x2++) {
+                        for (int y2 = 0; y2 < yt; y2++) {
+                            if (!water[x1][y1] && !water[x2][y2] && pathsDict[x1][y1][x2][y2] == null) {
+                                findShortestPath(Tile.getTile(x1, y1), Tile.getTile(x2, y2), land, pathsDict, pathsDist);
+                            }
+                        }
+                    }
+                }
+            }
+
+            setPathsDict(pathsDict);
+            setPathsDist(pathsDist);
+
+            setPreCalcFinished(true);
+
+            LOGGER.debug("paths calculation finishes.");
+        }
     }
 
     private void findShortestPath(Tile t1, Tile t2, boolean[][] land, TileLink[][][][] pathsDict, int[][][][] pathsDist) {

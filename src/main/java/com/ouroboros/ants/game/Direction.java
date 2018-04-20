@@ -12,10 +12,10 @@ import static com.ouroboros.ants.utils.Utils.nc;
  *
  */
 public enum Direction {
-    EAST('e', (x, y, xt, yt) -> {int[] n = new int[2]; n[0] = nc(x + 1, xt); n[1] = y; return n;}),
-    SOUTH('s', (x, y, xt, yt) -> {int[] n = new int[2]; n[0] = x; n[1] = nc(y + 1, yt); return n;}),
-    WEST('w', (x, y, xt, yt) -> {int[] n = new int[2]; n[0] = nc(x - 1, xt); n[1] = y; return n;}),
-    NORTH('n', (x, y, xt, yt) -> {int[] n = new int[2]; n[0] = x; n[1] = nc(y - 1, yt); return n;});
+    EAST('e', (x, y, xt, yt) -> Tile.getTile(nc(x + 1, xt), y)),
+    SOUTH('s', (x, y, xt, yt) -> Tile.getTile(x, nc(y + 1, yt))),
+    WEST('w', (x, y, xt, yt) -> Tile.getTile(nc(x - 1, xt), y)),
+    NORTH('n', (x, y, xt, yt) -> Tile.getTile(x, nc(y - 1, yt)));
 
     public static Direction getOppoDir(Direction dir) {
         switch (dir) {
@@ -73,12 +73,12 @@ public enum Direction {
         return c;
     }
 
-    public int[] getNeighbour(int x, int y, int xt, int yt) {
+    public Tile getNeighbour(int x, int y, int xt, int yt) {
         return getter.get(x, y, xt, yt);
     }
 
     private interface NeighbourGetter {
-        int[] get(int x, int y, int xt, int yt);
+        Tile get(int x, int y, int xt, int yt);
     }
 }
 

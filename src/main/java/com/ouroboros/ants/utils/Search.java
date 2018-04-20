@@ -29,11 +29,9 @@ public class Search {
 
         Multimap<Direction, Tile> dirTargets = MultimapBuilder.enumKeys(Direction.class).linkedListValues().build();
         for (Direction d : Direction.values()) {
-            int[] co = d.getNeighbour(origin.x, origin.y, xt, yt);
-            int x = co[0];
-            int y = co[1];
-            dirTargets.put(d, Tile.getTile(x, y));
-            searched[x][y] = true;
+            Tile dt = d.getNeighbour(origin.x, origin.y, xt, yt);
+            dirTargets.put(d, Tile.getTile(dt.x, dt.y));
+            searched[dt.x][dt.y] = true;
         }
 
         for (int i = 1; i < depth; i++) {
@@ -43,19 +41,13 @@ public class Search {
 
                 for (Tile o : origins) {
                     for (Direction od : Direction.values()) {
-                        int[] co = od.getNeighbour(o.x, o.y, xt, yt);
-                        int x = co[0];
-                        int y = co[1];
+                        Tile dt = od.getNeighbour(o.x, o.y, xt, yt);
 
-                        if (blocks[x][y]) {
+                        if (blocks[dt.x][dt.y] || searched[dt.x][dt.y]) {
                             continue;
                         }
 
-                        if (searched[x][y]) {
-                            continue;
-                        }
-
-                        nextLayer.add(Tile.getTile(x, y));
+                        nextLayer.add(Tile.getTile(dt.x, dt.y));
                     }
                 }
 
@@ -84,18 +76,16 @@ public class Search {
 
         Multimap<Direction, Tile> dirTargets = MultimapBuilder.enumKeys(Direction.class).linkedListValues().build();
         for (Direction d : Direction.getValuesRandom()) {
-            int[] co = d.getNeighbour(origin.x, origin.y, xt, yt);
-            int x = co[0];
-            int y = co[1];
+            Tile dt = d.getNeighbour(origin.x, origin.y, xt, yt);
 
-            if (targets[x][y] && !excludeTgts[x][y]) {
+            if (targets[dt.x][dt.y] && !excludeTgts[dt.x][dt.y]) {
                 results.add(TileDir.getTileDir(origin, d));
                 continue;
             }
 
             if (results.isEmpty()) {
-                searched[x][y] = true;
-                dirTargets.put(d, Tile.getTile(x, y));
+                searched[dt.x][dt.y] = true;
+                dirTargets.put(d, Tile.getTile(dt.x, dt.y));
             }
         }
 
@@ -105,7 +95,7 @@ public class Search {
                     Collection<Tile> origins = dirTargets.get(d);
                     List<Tile> nextLayer = new LinkedList<>();
 
-                    List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer);
+                    List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer, origins.size() * 4);
                     if (!dt.isEmpty()) {
                         results.add(TileDir.getTileDir(origin, d));
                         continue;
@@ -140,7 +130,7 @@ public class Search {
         for (int i = 0; i < depth; i++) {
             List<Tile> nextLayer = new LinkedList<>();
 
-            List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer);
+            List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer, count - results.size());
             if (!dt.isEmpty()) {
                 if (dt.size() + results.size() < count) {
                     results.addAll(dt);
@@ -161,31 +151,28 @@ public class Search {
      * TODO use set instead of sparse vector for tracking searched
      */
     private static List<TileDir> nextLayer(Collection<Tile> origins, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
-                                     int xt, int yt, boolean[][] searched, List<Tile> nextLayer) {
+                                     int xt, int yt, boolean[][] searched, List<Tile> nextLayer, int count) {
         List<TileDir> results = new LinkedList<>();
 
         for (Tile origin : origins) {
             for (Direction d : Direction.getValuesRandom()) {
-                int[] co = d.getNeighbour(origin.x, origin.y, xt, yt);
-                int x = co[0];
-                int y = co[1];
+                Tile dt = d.getNeighbour(origin.x, origin.y, xt, yt);
 
-                if (targets[x][y] && !excludeTgts[x][y]) {
-                    results.add(TileDir.getTileDir(Tile.getTile(x, y), getOppoDir(d)));
+                if (searched[dt.x][dt.y] || blocks[dt.x][dt.y]) {
                     continue;
                 }
 
-                if (searched[x][y]) {
-                    continue;
+                if (targets[dt.x][dt.y] && !excludeTgts[dt.x][dt.y]) {
+                    results.add(TileDir.getTileDir(Tile.getTile(dt.x, dt.y), getOppoDir(d)));
+
+                    if (results .size() == count) {
+                        return results;
+                    }
                 }
 
-                if (blocks[x][y]) {
-                    continue;
-                }
+                searched[dt.x][dt.y] = true;
 
-                searched[x][y] = true;
-
-                nextLayer.add(Tile.getTile(x, y));
+                nextLayer.add(Tile.getTile(dt.x, dt.y));
             }
         }
 
@@ -213,18 +200,16 @@ public class Search {
         Map<Tile, Tile> backLookup = new HashMap<>();
         for (Tile tile : origins) {
             for (Direction d : Direction.getValuesRandom()) {
-                int[] co = d.getNeighbour(tile.x, tile.y, xt, yt);
-                int x = co[0];
-                int y = co[1];
+                Tile dt = d.getNeighbour(tile.x, tile.y, xt, yt);
 
-                if (!searched[x][y] && land[x][y]) {
-                    Tile t = Tile.getTile(x, y);
+                if (!searched[dt.x][dt.y] && land[dt.x][dt.y]) {
+                    Tile t = Tile.getTile(dt.x, dt.y);
                     if (t == target) {
                         return new FindPathResult(new TileLink(t, null, null), tile);
                     } else {
                         tiles.add(t);
                     }
-                    searched[x][y] = true;
+                    searched[dt.x][dt.y] = true;
                     backLookup.put(t, tile);
                 }
             }
@@ -249,11 +234,9 @@ public class Search {
 
         for (Tile tile : targets) {
             for (Direction d : Direction.getValuesRandom()) {
-                int[] co = d.getNeighbour(origin.x, origin.y, xt, yt);
-                int x = co[0];
-                int y = co[1];
+                Tile dt = d.getNeighbour(origin.x, origin.y, xt, yt);
 
-                int dist = distCalc.dist(tile.x, tile.y, x, y);
+                int dist = distCalc.dist(tile.x, tile.y, dt.x, dt.y);
 
                 if (dist < minDist) {
                     minDist = dist;

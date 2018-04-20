@@ -29,16 +29,14 @@ public class Influence {
                 inUpdate.update(o.x, o.y, i);
 
                 for (Direction d : Direction.values()) {
-                    int[] co = d.getNeighbour(o.x, o.y, xt, yt);
-                    int x = co[0];
-                    int y = co[1];
+                    Tile dt = d.getNeighbour(o.x, o.y, xt, yt);
 
-                    if (searched[x][y]) {
+                    if (searched[dt.x][dt.y]) {
                         continue;
                     }
 
-                    nextLayer.add(Tile.getTile(x, y));
-                    searched[x][y] = true;
+                    nextLayer.add(Tile.getTile(dt.x, dt.y));
+                    searched[dt.x][dt.y] = true;
                 }
             }
 

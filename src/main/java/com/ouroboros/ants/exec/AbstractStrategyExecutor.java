@@ -9,7 +9,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.ouroboros.ants.Ants.executor;
+import static com.ouroboros.ants.Ants.strategyExecutor;
 
 /**
  * Created by zhanxies on 4/8/2018.
@@ -29,7 +29,7 @@ public abstract class AbstractStrategyExecutor implements StrategyExecutor {
         outputSwitch.set(true);
         finishSwitch = new CountDownLatch(1);
 
-        executor.execute(() -> {
+        strategyExecutor.execute(() -> {
             try {
                 function.apply(this::stepOutput);
                 finishSwitch.countDown();
@@ -38,7 +38,7 @@ public abstract class AbstractStrategyExecutor implements StrategyExecutor {
             }
         });
 
-        executor.execute(() -> {
+        strategyExecutor.execute(() -> {
             try {
                 try {
                     boolean done = finishSwitch.await(time, TimeUnit.MILLISECONDS);

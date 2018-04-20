@@ -24,6 +24,9 @@ public class AggStrategySyncData {
     private static volatile TileLink[][][][] pathsDict;
     private static volatile int[][][][] pathsDist;
 
+    private static volatile boolean preCalcFinished;
+    private static volatile boolean mapKnown;
+
     public static int[][] getFoodInfCnt() {
         return foodInfCnt;
     }
@@ -91,5 +94,21 @@ public class AggStrategySyncData {
 
     public static void setWater(boolean[][] water) {
         AggStrategySyncData.water = water;
+    }
+
+    public static boolean isMapKnown() {
+        return mapKnown;
+    }
+
+    public static void setMapKnown(boolean mapKnown) {
+        AggStrategySyncData.mapKnown = mapKnown;
+    }
+
+    public static boolean isPreCalcFinished() {
+        return preCalcFinished;
+    }
+
+    public static void setPreCalcFinished(boolean preCalcFinished) {
+        AggStrategySyncData.preCalcFinished = preCalcFinished;
     }
 }
