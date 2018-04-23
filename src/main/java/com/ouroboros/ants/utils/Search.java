@@ -78,7 +78,11 @@ public class Search {
         for (Direction d : Direction.getValuesRandom()) {
             Tile dt = d.getNeighbour(origin.x, origin.y, xt, yt);
 
-            if (targets[dt.x][dt.y] && !excludeTgts[dt.x][dt.y]) {
+            if (excludeTgts[dt.x][dt.y]) {
+                continue;
+            }
+
+            if (targets[dt.x][dt.y]) {
                 results.add(TileDir.getTileDir(origin, d));
                 continue;
             }
@@ -158,11 +162,11 @@ public class Search {
             for (Direction d : Direction.getValuesRandom()) {
                 Tile dt = d.getNeighbour(origin.x, origin.y, xt, yt);
 
-                if (searched[dt.x][dt.y] || blocks[dt.x][dt.y]) {
+                if (searched[dt.x][dt.y] || blocks[dt.x][dt.y] || excludeTgts[dt.x][dt.y]) {
                     continue;
                 }
 
-                if (targets[dt.x][dt.y] && !excludeTgts[dt.x][dt.y]) {
+                if (targets[dt.x][dt.y]) {
                     results.add(TileDir.getTileDir(Tile.getTile(dt.x, dt.y), getOppoDir(d)));
 
                     if (results .size() == count) {

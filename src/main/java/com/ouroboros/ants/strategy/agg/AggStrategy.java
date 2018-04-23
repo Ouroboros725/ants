@@ -12,8 +12,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
@@ -24,7 +28,6 @@ import static com.ouroboros.ants.utils.Influence.infUpdate;
 import static com.ouroboros.ants.utils.Search.findPath;
 import static com.ouroboros.ants.utils.Search.shallowDFSBack;
 import static com.ouroboros.ants.utils.Utils.dist1D;
-import static com.ouroboros.ants.utils.Utils.getSecondArg;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
@@ -118,8 +121,6 @@ public class AggStrategy extends AbstractStrategy {
         setFoodInfCnt(new int[xt][yt]);
         setFoodInfMap(new int[xt][yt]);
 
-        LOGGER.info("123");
-
         scheduler.scheduleAtFixedRate(this::preCalcEucl, gameStates.turnTime * 50, gameStates.turnTime * 10, TimeUnit.MILLISECONDS);
     }
 
@@ -142,16 +143,28 @@ public class AggStrategy extends AbstractStrategy {
 
             CompletableFuture<Void> updateFoodInf = runAsync(() -> updateFoodInfMap(turnInfo.food), executor);
             CompletableFuture<List<Tile>> tgtFood = updateFoodInf.thenComposeAsync(v -> supplyAsync(this::calcTargetFood), executor);
-            CompletableFuture<Void> spawnFood = null;
-
-
+            CompletableFuture<Void> spawnFood = noGoArea.thenCombineAsync(myAnts, (ng, ants) -> Lists.newArrayList(ants, ng), executor)
+                    .thenCombineAsync(tgtFood, (p1, p2) -> new SpawnFoodArgs(p1.get(0), p1.get(1), p2), executor)
+                    .thenComposeAsync(arg -> runAsync(() -> spawnFood(arg, output)), executor);
 
             CompletableFuture<boolean[][]> oppAnts = supplyAsync(() -> getAntsMap(turnInfo.oppAnts), executor);
 
             CompletableFuture<int[][]> borderCalc = supplyAsync(() -> calcBorder(turnInfo.myAnts), executor);
             CompletableFuture<int[][]> oppBorderCalc = supplyAsync(() -> calcBorder(turnInfo.oppAnts), executor);
 
-            attackHills.exceptionally(ex -> {LOGGER.error("Agg strategy failed.", ex); return null;});
+            try {
+                CompletableFuture.allOf(attackHills, spawnFood)
+                        .thenRunAsync(() -> LOGGER.debug("agg strategy finishes"))
+                        .exceptionally(ex -> {
+                            LOGGER.error("Agg strategy failed.", ex);
+                            return null;
+                        }).get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOGGER.error("agg strategy crashed.", e);
+            } catch (ExecutionException e) {
+                LOGGER.error("agg strategy crashed.", e);
+            }
         }
 
     }
@@ -215,6 +228,8 @@ public class AggStrategy extends AbstractStrategy {
         }
         return antsMap;
     }
+
+
 
     private void attackHills(List<Tile> hills, boolean[][] ants, int antsNum, boolean[][] blocks, Consumer<Move> output) {
         int hillNum = hills.size();
@@ -312,21 +327,35 @@ public class AggStrategy extends AbstractStrategy {
         return false;
     }
 
-    private void spawnFood(List<Tile> foodList, boolean[][] ants, boolean[][] blocks, Consumer<Move> output) {
-        if (!foodList.isEmpty()) {
+    private static class SpawnFoodArgs {
+        List<Tile> foodList;
+        boolean[][] ants;
+        boolean[][] blocks;
+
+        public SpawnFoodArgs(boolean[][] ants, boolean[][] blocks, List<Tile> foodList) {
+            this.ants = ants;
+            this.blocks = blocks;
+            this.foodList = foodList;
+        }
+    }
+
+    private void spawnFood(SpawnFoodArgs args, Consumer<Move> output) {
+        if (!args.foodList.isEmpty()) {
+            LOGGER.debug("spawn food");
+
             boolean[][] movedAnts = getMovedAnts();
 
-            Set<Tile> tgtAnts = new HashSet<>();
-
-            for (Tile t : foodList) {
-                List<TileDir> tds = shallowDFSBack(t, ants, movedAnts, blocks, xt, yt, getFoodRadius, 1);
+            for (Tile t : args.foodList) {
+                List<TileDir> tds = shallowDFSBack(t, args.ants, movedAnts, args.blocks, xt, yt, getFoodRadius, 1);
                 if (!tds.isEmpty()) {
                     for (TileDir td : tds) {
+                        LOGGER.debug("spawn food move: " + td.tile);
                         moveAnt(new Move(td.tile.x, td.tile.y, td.direction.getChar()), movedAnts, output);
                     }
                 }
             }
 
+            LOGGER.debug("spawn food finishes");
         }
     }
 

@@ -48,6 +48,7 @@ public abstract class AbstractStrategyExecutor implements StrategyExecutor {
                 } catch (InterruptedException e) {
 //                LOGGER.error("error when waiting for turn finish", e);
                     Thread.currentThread().interrupt();
+                    throw e;
                 }
 
                 finishOutput();
