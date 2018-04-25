@@ -72,7 +72,7 @@ public class Search {
         boolean[][] searched = new boolean[xt][yt];
         searched[origin.x][origin.y] = true;
 
-        List<TileDir> results = new ArrayList<>();
+        List<TileDir> results = new LinkedList<>();
 
         Multimap<Direction, Tile> dirTargets = MultimapBuilder.enumKeys(Direction.class).linkedListValues().build();
         for (Direction d : Direction.getValuesRandom()) {
@@ -95,8 +95,18 @@ public class Search {
 
         if (results.isEmpty()) {
             for (int i = 1; i < depth; i++) {
+                if (dirTargets.isEmpty()) {
+                    break;
+                }
+
                 for (Direction d : Direction.getValuesRandom()) {
                     Collection<Tile> origins = dirTargets.get(d);
+
+                    if (origins.isEmpty()) {
+                        dirTargets.removeAll(d);
+                        continue;
+                    }
+
                     List<Tile> nextLayer = new LinkedList<>();
 
                     List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer, origins.size() * 4);
@@ -132,6 +142,10 @@ public class Search {
         List<TileDir> results = new LinkedList<>();
 
         for (int i = 0; i < depth; i++) {
+            if (origins.isEmpty()) {
+                break;
+            }
+
             List<Tile> nextLayer = new LinkedList<>();
 
             List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer, count - results.size());
@@ -232,12 +246,16 @@ public class Search {
         int dist(int x1, int y1, int x2, int y2);
     }
 
-    public static TileDir aStar(Tile origin, List<Tile> targets, int xt, int yt, DistCalc distCalc) {
+    public static TileDir aStar(Tile origin, List<Tile> targets, Set<Direction> excludes, int xt, int yt, DistCalc distCalc) {
         int minDist = Integer.MAX_VALUE;
-        List<TileDir> td = new ArrayList<>();
+        List<TileDir> td = new LinkedList<>();
 
-        for (Tile tile : targets) {
-            for (Direction d : Direction.getValuesRandom()) {
+        for (Direction d : Direction.getValuesRandom()) {
+            if (excludes.contains(d)) {
+                continue;
+            }
+
+            for (Tile tile : targets) {
                 Tile dt = d.getNeighbour(origin.x, origin.y, xt, yt);
 
                 int dist = distCalc.dist(tile.x, tile.y, dt.x, dt.y);

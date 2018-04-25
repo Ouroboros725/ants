@@ -52,4 +52,8 @@ public class Utils {
     public static <T, U> U getSecondArg(T arg1, U arg2) {
         return arg2;
     }
+
+    public static <T, U> T getFirstArg(T arg1, U arg2) {
+        return arg1;
+    }
 }

@@ -20,6 +20,7 @@ public class AggStrategySyncData {
     private static volatile boolean[][] land;
 
     private static volatile boolean[][] movedAnts;
+    private static volatile boolean[][] ants;
 
     private static volatile TileLink[][][][] pathsDict;
     private static volatile int[][][][] pathsDist;
@@ -110,5 +111,18 @@ public class AggStrategySyncData {
 
     public static void setPreCalcFinished(boolean preCalcFinished) {
         AggStrategySyncData.preCalcFinished = preCalcFinished;
+    }
+
+    public static boolean[][] getAnts() {
+        return ants;
+    }
+
+    public static void setAnts(boolean[][] ants) {
+        AggStrategySyncData.ants = ants;
+    }
+
+    public static boolean[][] initAnts(int xt, int yt) {
+        ants = new boolean[xt][yt];
+        return ants;
     }
 }

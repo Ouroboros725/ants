@@ -23,7 +23,7 @@ public class Ants {
         return t;
     });
 
-    public static final ExecutorService executor = Executors.newFixedThreadPool(125, r -> {
+    public static final ExecutorService executor = Executors.newFixedThreadPool(250, r -> {
         Thread t = new Thread(r);
         t.setPriority(Thread.NORM_PRIORITY);
         return t;
