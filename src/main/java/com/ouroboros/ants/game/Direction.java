@@ -55,7 +55,7 @@ public enum Direction {
     private static final List<Direction> SHUFFLED_VALUES = Arrays.asList(Direction.values());
 
     public static List<Direction> getValuesRandom() {
-        if (ThreadLocalRandom.current().nextDouble() < 0.1d) {
+        if (ThreadLocalRandom.current().nextDouble() < 0.20d) {
             Collections.shuffle(SHUFFLED_VALUES, ThreadLocalRandom.current());
         }
         return SHUFFLED_VALUES;

@@ -41,6 +41,10 @@ public class Utils {
     }
 
     public static <T> T getRandomElement(List<T> list) {
+        if (list == null || list.isEmpty()) {
+            return null;
+        }
+
         if (list.size() == 1) {
             return list.get(0);
         }

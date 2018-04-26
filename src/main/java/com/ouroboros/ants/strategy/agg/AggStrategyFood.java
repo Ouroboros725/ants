@@ -18,7 +18,6 @@ import java.util.function.Consumer;
 
 import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.*;
 import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.getFoodInfMap;
-import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.getMovedAnts;
 import static com.ouroboros.ants.utils.Influence.infUpdate;
 import static com.ouroboros.ants.utils.Search.shallowDFSBack;
 
@@ -85,9 +84,9 @@ public class AggStrategyFood {
         for (TilePriority tp : foodList) {
             if (!foodTileCovered(tp.tile, tp.priority, foodInfMap, str.spawnRadius)) {
                 foodResult.add(tp.tile);
-//                LOGGER.debug("food inf map selected: {}, {}", tp.tile, tp.priority);
-//            } else {
-//                LOGGER.debug("food inf map dropped: {}, {}", tp.tile, tp.priority);
+                LOGGER.debug("food inf map selected: {}, {}", tp.tile, tp.priority);
+            } else {
+                LOGGER.debug("food inf map dropped: {}, {}", tp.tile, tp.priority);
             }
         }
 
@@ -114,34 +113,24 @@ public class AggStrategyFood {
         return false;
     }
 
-    static class SpawnFoodArgs {
-        List<Tile> foodList;
-        boolean[][] blocks;
-
-        public SpawnFoodArgs(boolean[][] blocks, List<Tile> foodList) {
-            this.blocks = blocks;
-            this.foodList = foodList;
-        }
-    }
-
-    void spawnFood(SpawnFoodArgs args, Consumer<Move> output) {
-        if (!args.foodList.isEmpty()) {
-//            LOGGER.debug("spawn food");
+    void havFood(List<Tile> foodList, boolean[][] blocks, Consumer<Move> output) {
+        if (!foodList.isEmpty()) {
+            LOGGER.debug("hav food");
 
             str.moveAnts((ants, movedAnts) -> {
-                for (Tile t : args.foodList) {
-                    List<TileDir> tds = shallowDFSBack(t, ants, movedAnts, args.blocks, str.xt, str.yt, str.getFoodRadius, 1);
+                for (Tile t : foodList) {
+                    List<TileDir> tds = shallowDFSBack(t, ants, movedAnts, blocks, str.xt, str.yt, str.getFoodRadius, 1);
                     if (!tds.isEmpty()) {
                         for (TileDir td : tds) {
-//                            LOGGER.debug("spawn food food: {}", t);
-//                            LOGGER.debug("spawn food move: {}", td.tile);
+                            LOGGER.debug("hav food food: {}", t);
+                            LOGGER.debug("hav food move: {}", td.tile);
                             str.moveAnt(td, ants, movedAnts, output);
                         }
                     }
                 }
             });
 
-//            LOGGER.debug("spawn food finishes");
+//            LOGGER.debug("hav food finishes");
         }
     }
 

@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.*;
 import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.setPreCalcFinished;
 import static com.ouroboros.ants.utils.Search.findPath;
@@ -23,13 +25,24 @@ public class AggStrategyCalc {
     @Autowired
     AggStrategy str;
 
+    AtomicBoolean readyInd = new AtomicBoolean(false);
+
+    void prepareCalc() {
+        setPathsDict(new TileLink[str.xt][str.yt][str.xt][str.yt]);
+        setPathsDist(new int[str.xt][str.yt][str.xt][str.yt]);
+        readyInd.set(true);
+    }
+
     void preCalcEucl() {
+        if (!readyInd.get()) {
+            return;
+        }
+
         boolean[][] land = getLand();
         boolean[][] water = getWater();
 
         TileLink[][][][] pathsDict = getPathsDict();
         int[][][][] pathsDist = getPathsDist();
-
 
         boolean ready = true;
         for (int x = 0; x < str.xt; x++) {

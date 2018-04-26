@@ -1,9 +1,10 @@
 package com.ouroboros.ants.strategy.agg;
 
-import com.ouroboros.ants.game.*;
+import com.ouroboros.ants.game.Global;
+import com.ouroboros.ants.game.Tile;
+import com.ouroboros.ants.game.TileDir;
 import com.ouroboros.ants.info.Turn;
 import com.ouroboros.ants.strategy.AbstractStrategy;
-import com.ouroboros.ants.strategy.agg.AggStrategyFood.SpawnFoodArgs;
 import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.Search.DistCalc;
 import com.ouroboros.ants.utils.Utils;
@@ -84,6 +85,8 @@ public class AggStrategy extends AbstractStrategy {
         euclDist = new int[xt][yt][xt][yt];
         manhDist = new int[xt][yt][xt][yt];
 
+        LOGGER.debug("prepare 1");
+
         for (int x1 = 0; x1 < xt; x1++) {
             for (int y1 = 0; y1 < yt; y1++) {
                 for (int x2 = 0; x2 < xt; x2++) {
@@ -96,6 +99,8 @@ public class AggStrategy extends AbstractStrategy {
                 }
             }
         }
+
+        LOGGER.debug("prepare 2");
 
         viewRadius2 = gameStates.viewRadius2;
         attackRadius2 = gameStates.attackRadius2;
@@ -122,58 +127,70 @@ public class AggStrategy extends AbstractStrategy {
             spawnDecInf[i] = spawnDecCalc(i);
         }
 
+        LOGGER.debug("prepare 3");
+
         setVisitInfMap(new int[xt][yt]);
         setWater(new boolean[xt][yt]);
         setLand(new boolean[xt][yt]);
 
-        setPathsDict(new TileLink[xt][yt][xt][yt]);
-        setPathsDist(new int[xt][yt][xt][yt]);
+        LOGGER.debug("prepare 4");
+
+        LOGGER.debug("prepare 5");
 
         setFoodInfCnt(new int[xt][yt]);
         setFoodInfMap(new int[xt][yt]);
 
+        scheduler.schedule(calc::prepareCalc, gameStates.turnTime, TimeUnit.MILLISECONDS);
         scheduler.scheduleAtFixedRate(calc::preCalcEucl, gameStates.turnTime * 50, gameStates.turnTime * 10, TimeUnit.MILLISECONDS);
+
+        LOGGER.debug("prepare 6");
     }
 
     @Override
     protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output) {
         if (!turnInfo.myAnts.isEmpty()) {
+            LOGGER.debug("init turn");
             initMovedAnts(xt, yt);
             initAnts(xt, yt);
 
-            CompletableFuture<Void> waterUpdate = runAsync(() -> common.updateWater(turnInfo.water), executor);
-
-            CompletableFuture<Void> myAnts = runAsync(() -> common.updateAntsMap(turnInfo.myAnts), executor);
-
-            CompletableFuture<boolean[][]> oppAttArea = supplyAsync(() -> common.getAntsAttackArea(turnInfo.oppAnts), executor);
-            CompletableFuture<boolean[][]> noGoArea = waterUpdate.thenCombineAsync(oppAttArea, Utils::getSecondArg, executor)
-                    .thenComposeAsync(oaa -> supplyAsync(() -> common.getTabooArea(oaa), executor), executor);
-
-            CompletableFuture<Void> attackHills = noGoArea.thenCombineAsync(myAnts, Utils::getFirstArg, executor)
-                    .thenComposeAsync(ng -> runAsync(() -> hill.attackHills(turnInfo.oppHills, turnInfo.myAnts.size(), ng, output), executor), executor);
-
-
-            CompletableFuture<Void> foodInfUpdate = runAsync(() -> food.updateFoodInfMap(turnInfo.food), executor);
-            CompletableFuture<List<Tile>> tgtFood = foodInfUpdate.thenComposeAsync(v -> supplyAsync(food::calcTargetFood, executor), executor);
-            CompletableFuture<Void> spawnFood = noGoArea.thenCombineAsync(myAnts, Utils::getFirstArg, executor)
-                    .thenCombineAsync(tgtFood, SpawnFoodArgs::new, executor)
-                    .thenComposeAsync(arg -> runAsync(() -> food.spawnFood(arg, output), executor), executor);
-
-            CompletableFuture<boolean[][]> oppAnts = supplyAsync(() -> common.getAntsMap(turnInfo.oppAnts), executor);
-
-            CompletableFuture<int[][]> borderCalc = supplyAsync(() -> explore.calcBorder(turnInfo.myAnts), executor);
-            CompletableFuture<int[][]> oppBorderCalc = supplyAsync(() -> explore.calcBorder(turnInfo.oppAnts), executor);
-
-            CompletableFuture<Void> landUpdate = borderCalc.thenComposeAsync(infMap -> runAsync(() -> explore.updateLand(infMap), executor), executor);
-            CompletableFuture<Void> visitInfUpdate = borderCalc.thenComposeAsync(infMap -> runAsync(() -> explore.updateVisitInfMap(infMap), executor), executor);
+            LOGGER.debug("exec turn");
 
             try {
-                CompletableFuture.allOf(attackHills, spawnFood)
-                        .thenRunAsync(() -> LOGGER.debug("agg strategy finishes"), executor)
-                        .exceptionally(ex -> {
-                            LOGGER.error("Agg strategy failed.", ex);
-                            return null;
-                        }).get();
+                CompletableFuture<Void> waterUpdate = runAsync(() -> common.updateWater(turnInfo.water), executor);
+
+                CompletableFuture<Void> myAnts = runAsync(() -> common.updateAntsMap(turnInfo.myAnts), executor);
+
+                CompletableFuture<boolean[][]> oppAttArea = supplyAsync(() -> common.getAntsAttackArea(turnInfo.oppAnts), executor);
+                CompletableFuture<boolean[][]> noGoArea = waterUpdate.thenCombineAsync(oppAttArea, Utils::getSecondArg, executor)
+                        .thenApplyAsync(common::getTabooArea, executor);
+
+                CompletableFuture<Void> attackHills = noGoArea.thenCombineAsync(myAnts, Utils::getFirstArg, executor)
+                        .thenAcceptBothAsync(myAnts, (ng, ants) -> hill.attackHills(turnInfo.oppHills, turnInfo.myAnts.size(), ng, output), executor);
+
+                LOGGER.debug("attack hill");
+                attackHills.get();
+
+                CompletableFuture<Void> foodInfUpdate = runAsync(() -> food.updateFoodInfMap(turnInfo.food), executor);
+                CompletableFuture<List<Tile>> tgtFood = foodInfUpdate.thenApplyAsync(v -> food.calcTargetFood(), executor);
+                CompletableFuture<Void> havFood = noGoArea.thenCombineAsync(myAnts, Utils::getFirstArg, executor)
+                        .thenAcceptBothAsync(tgtFood, (ng, fd) -> food.havFood(fd, ng, output), executor);
+
+                LOGGER.debug("hav food");
+                havFood.get();
+
+                CompletableFuture<int[][]> borderCalc = supplyAsync(() -> explore.calcBorder(turnInfo.myAnts), executor);
+                CompletableFuture<Void> visitInfUpdate = borderCalc.thenAcceptAsync(explore::updateVisitInfMap, executor);
+                CompletableFuture<Void> exploreUpdate = visitInfUpdate.thenCombineAsync(noGoArea, Utils::getSecondArg, executor)
+                        .thenAcceptBothAsync(borderCalc, (ng, bd) -> explore.explore(bd, ng, output), executor);
+
+                LOGGER.debug("explore");
+                exploreUpdate.get();
+
+                CompletableFuture<int[][]> oppBorderCalc = supplyAsync(() -> explore.calcBorder(turnInfo.oppAnts), executor);
+                CompletableFuture<boolean[][]> oppAnts = supplyAsync(() -> common.getAntsMap(turnInfo.oppAnts), executor);
+
+                CompletableFuture<Void> landUpdate = borderCalc.thenComposeAsync(infMap -> runAsync(() -> explore.updateLand(infMap), executor), executor);
+
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 LOGGER.error("agg strategy crashed.", e);

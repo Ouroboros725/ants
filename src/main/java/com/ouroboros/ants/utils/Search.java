@@ -3,12 +3,10 @@ package com.ouroboros.ants.utils;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
-import com.ouroboros.ants.game.Direction;
-import com.ouroboros.ants.game.Tile;
-import com.ouroboros.ants.game.TileDir;
-import com.ouroboros.ants.game.TileLink;
+import com.ouroboros.ants.game.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.ouroboros.ants.game.Direction.getOppoDir;
 import static com.ouroboros.ants.utils.Utils.getRandomElement;
@@ -67,12 +65,12 @@ public class Search {
         return dirTargets;
     }
 
-    public static TileDir shallowDFS(Tile origin, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
+    public static TileDirTgt shallowDFS(Tile origin, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
                                          int xt, int yt, int depth) {
         boolean[][] searched = new boolean[xt][yt];
         searched[origin.x][origin.y] = true;
 
-        List<TileDir> results = new LinkedList<>();
+        List<TileDirTgt> results = new LinkedList<>();
 
         Multimap<Direction, Tile> dirTargets = MultimapBuilder.enumKeys(Direction.class).linkedListValues().build();
         for (Direction d : Direction.getValuesRandom()) {
@@ -83,7 +81,7 @@ public class Search {
             }
 
             if (targets[dt.x][dt.y]) {
-                results.add(TileDir.getTileDir(origin, d));
+                results.add(new TileDirTgt(TileDir.getTileDir(origin, d), dt));
                 continue;
             }
 
@@ -111,7 +109,7 @@ public class Search {
 
                     List<TileDir> dt = nextLayer(origins, targets, excludeTgts, blocks, xt, yt, searched, nextLayer, origins.size() * 4);
                     if (!dt.isEmpty()) {
-                        results.add(TileDir.getTileDir(origin, d));
+                        results.addAll(dt.stream().map(di -> new TileDirTgt(TileDir.getTileDir(origin, d), di.tile)).collect(Collectors.toList()));
                         continue;
                     }
 
@@ -246,9 +244,9 @@ public class Search {
         int dist(int x1, int y1, int x2, int y2);
     }
 
-    public static TileDir aStar(Tile origin, List<Tile> targets, Set<Direction> excludes, int xt, int yt, DistCalc distCalc) {
+    public static TileDirTgt aStar(Tile origin, List<Tile> targets, Set<Direction> excludes, int xt, int yt, DistCalc distCalc) {
         int minDist = Integer.MAX_VALUE;
-        List<TileDir> td = new LinkedList<>();
+        List<TileDirTgt> td = new LinkedList<>();
 
         for (Direction d : Direction.getValuesRandom()) {
             if (excludes.contains(d)) {
@@ -263,9 +261,9 @@ public class Search {
                 if (dist < minDist) {
                     minDist = dist;
                     td.clear();
-                    td.add(TileDir.getTileDir(origin.x, origin.y, d));
+                    td.add(new TileDirTgt(TileDir.getTileDir(origin.x, origin.y, d), tile));
                 } else if (dist == minDist) {
-                    td.add(TileDir.getTileDir(origin.x, origin.y, d));
+                    td.add(new TileDirTgt(TileDir.getTileDir(origin.x, origin.y, d), tile));
                 }
             }
         }
