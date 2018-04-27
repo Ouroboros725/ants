@@ -17,14 +17,14 @@ public abstract class AbstractStrategy implements Strategy {
     @Override
     public void prepare(Map mapInfo, Global gameStates, StrategyExecutor turnExec) {
         gameStates.warmup(mapInfo);
-        turnExec.execute(o -> { gameStates.init(mapInfo); setupStrategy(gameStates); }, (gameStates.loadTime - 25));
+        turnExec.execute(o -> { gameStates.init(mapInfo); setupStrategy(gameStates); }, (long) (gameStates.loadTime * 0.9));
     }
 
     protected abstract void setupStrategy(Global gameStates);
 
     @Override
     public void apply(Turn turnInfo, Global gameStates, StrategyExecutor turnExec) {
-        turnExec.execute(o -> executeStrategy(turnInfo, gameStates, o), (gameStates.turnTime - 25));
+        turnExec.execute(o -> executeStrategy(turnInfo, gameStates, o), (long) (gameStates.turnTime * 0.9));
     }
 
     protected abstract void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output);

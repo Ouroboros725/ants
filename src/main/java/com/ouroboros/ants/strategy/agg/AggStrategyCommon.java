@@ -2,6 +2,7 @@ package com.ouroboros.ants.strategy.agg;
 
 import com.ouroboros.ants.game.Tile;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -13,6 +14,7 @@ import static com.ouroboros.ants.utils.Influence.infUpdate;
  * Created by zhanxies on 4/25/2018.
  *
  */
+@Profile("agg")
 @Component
 public class AggStrategyCommon {
 

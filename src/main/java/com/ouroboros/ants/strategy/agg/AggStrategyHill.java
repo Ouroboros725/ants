@@ -4,6 +4,7 @@ import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.game.TileDir;
 import com.ouroboros.ants.utils.Move;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -16,6 +17,7 @@ import static com.ouroboros.ants.utils.Search.shallowDFSBack;
  * Created by zhanxies on 4/25/2018.
  *
  */
+@Profile("agg")
 @Component
 public class AggStrategyHill {
 

@@ -5,6 +5,7 @@ import com.ouroboros.ants.game.TileLink;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -17,6 +18,7 @@ import static com.ouroboros.ants.utils.Search.findPath;
  * Created by zhanxies on 4/25/2018.
  *
  */
+@Profile("agg")
 @Component
 public class AggStrategyCalc {
 

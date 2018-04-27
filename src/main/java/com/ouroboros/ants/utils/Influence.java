@@ -43,6 +43,4 @@ public class Influence {
             origins = nextLayer;
         }
     }
-
-
 }
