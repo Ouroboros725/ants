@@ -1,10 +1,13 @@
 package com.ouroboros.ants.game.xy;
 
 import com.google.common.base.Objects;
+import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.utils.Utils;
 
-import java.util.HashSet;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -43,6 +46,14 @@ public class XYTile {
         }
     }
 
+    public static int getXt() {
+        return xt;
+    }
+
+    public static int getYt() {
+        return yt;
+    }
+
     public static XYTile getTile(int x, int y) {
         return tiles[x][y];
     }
@@ -54,37 +65,39 @@ public class XYTile {
     private int x;
     private int y;
     private XYTileStatus status;
+    private XYTileFood food;
 
-    private Set<XYTile> nb;
+    private Map<XYTile, XYTileMove> nb;
 
     private XYTile(int x, int y) {
         this.x = x;
         this.y = y;
         this.status = new XYTileStatus();
+        this.food = new XYTileFood();
     }
 
     private void initNB() {
-        nb = new HashSet<>(4);
+        nb = new HashMap<>(4);
         {
             int e = Utils.nc(x + 1, xt);
-            nb.add(tiles[e][y]);
+            nb.put(tiles[e][y], new XYTileMove(tiles[e][y], Direction.EAST));
         }
         {
             int s = Utils.nc(y + 1, yt);
-            nb.add(tiles[x][s]);
+            nb.put(tiles[x][s], new XYTileMove(tiles[x][s], Direction.SOUTH));
         }
         {
             int w = Utils.nc(x - 1, xt);
-            nb.add(tiles[w][y]);
+            nb.put(tiles[w][y], new XYTileMove(tiles[w][y], Direction.WEST));
         }
         {
             int n = Utils.nc(y - 1, yt);
-            nb.add(tiles[x][n]);
+            nb.put(tiles[x][n], new XYTileMove(tiles[x][n],  Direction.NORTH));
         }
     }
 
     public void removeFromNB() {
-        for (XYTile tile : nb) {
+        for (XYTile tile : nb.keySet()) {
             tile.nb.remove(this);
         }
 
@@ -100,23 +113,36 @@ public class XYTile {
     }
 
     public Set<XYTile> getNb() {
-        return nb;
+        return nb.keySet();
+    }
+
+    public Collection<XYTileMove> getNbDir() {
+        return nb.values();
     }
 
     public XYTileStatus getStatus() {
         return status;
     }
 
+    public XYTileFood getFood() {
+        return food;
+    }
+
     public int getDist(int x1, int y1) {
-        return Utils.distEucl2(x, y, x1, y1, xt, yt);
+        return Utils.distManh(x, y, x1, y1, xt, yt);
     }
 
     public int getDist(Tile tile) {
-        return Utils.distEucl2(x, y, tile.x, tile.y, xt, yt);
+        return Utils.distManh(x, y, tile.x, tile.y, xt, yt);
     }
 
     public int getDist(XYTile tile) {
-        return Utils.distEucl2(x, y, tile.x, tile.y, xt, yt);
+        return Utils.distManh(x, y, tile.x, tile.y, xt, yt);
+    }
+
+    public XYTileMove getMove(XYTile tile) {
+        Direction dir = Direction.getDirection(x, y, tile.x, tile.y, xt, yt);
+        return new XYTileMove(this, dir);
     }
 
     @Override

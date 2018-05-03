@@ -65,8 +65,8 @@ public class Search {
         return dirTargets;
     }
 
-    public static TileDirTgt shallowDFS(Tile origin, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
-                                         int xt, int yt, int depth) {
+    public static TileDirTgt shallowBFS(Tile origin, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
+                                        int xt, int yt, int depth) {
         boolean[][] searched = new boolean[xt][yt];
         searched[origin.x][origin.y] = true;
 
@@ -131,8 +131,8 @@ public class Search {
         return null;
     }
 
-    public static List<TileDir> shallowDFSBack(Tile origin, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
-                                  int xt, int yt, int depth, int count) {
+    public static List<TileDir> shallowBFSBack(Tile origin, boolean[][] targets, boolean[][] excludeTgts, boolean[][] blocks,
+                                               int xt, int yt, int depth, int count) {
         boolean[][] searched = new boolean[xt][yt];
         searched[origin.x][origin.y] = true;
 

@@ -10,8 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.*;
-import static com.ouroboros.ants.utils.Search.shallowDFSBack;
+import static com.ouroboros.ants.utils.Search.shallowBFSBack;
 
 /**
  * Created by zhanxies on 4/25/2018.
@@ -34,7 +33,7 @@ public class AggStrategyHill {
                 int attNum = attPHill < 5 ? attPHill : 5;
 
                 for (Tile hill : hills) {
-                    List<TileDir> moves = shallowDFSBack(hill, ants, movedAnts, blocks, str.xt, str.yt, str.attackHillRadius, attNum);
+                    List<TileDir> moves = shallowBFSBack(hill, ants, movedAnts, blocks, str.xt, str.yt, str.attackHillRadius, attNum);
                     for (TileDir td : moves) {
                         str.moveAnt(td, ants, movedAnts, output);
                     }

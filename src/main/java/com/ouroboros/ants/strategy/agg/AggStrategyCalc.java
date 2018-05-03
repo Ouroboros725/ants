@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.*;
-import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.setPreCalcFinished;
 import static com.ouroboros.ants.utils.Search.findPath;
 
 /**

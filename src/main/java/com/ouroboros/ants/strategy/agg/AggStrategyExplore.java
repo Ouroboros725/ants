@@ -18,7 +18,7 @@ import java.util.function.Consumer;
 import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.*;
 import static com.ouroboros.ants.utils.Influence.infUpdate;
 import static com.ouroboros.ants.utils.Search.aStar;
-import static com.ouroboros.ants.utils.Search.shallowDFS;
+import static com.ouroboros.ants.utils.Search.shallowBFS;
 
 /**
  * Created by zhanxies on 4/25/2018.
@@ -109,7 +109,7 @@ public class AggStrategyExplore {
     }
 
     private TileDir explore(Tile ant, boolean[][] visitInf, List<Tile> border, boolean[][] blocks, boolean[][] movedAnts) {
-        TileDirTgt td = shallowDFS(ant, visitInf, movedAnts, blocks, str.xt, str.yt, str.borderRadius);
+        TileDirTgt td = shallowBFS(ant, visitInf, movedAnts, blocks, str.xt, str.yt, str.borderRadius);
         if (td == null) {
             Set<Direction> excludes = new HashSet<>(4);
             for (Direction d : Direction.values()) {

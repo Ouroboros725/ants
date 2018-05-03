@@ -33,15 +33,19 @@ public enum Direction {
     }
 
     public static Direction getDirection(Tile t1, Tile t2, int xt, int yt) {
-        if (t1.x == t2.x) {
-            int yd = t1.y - t2.y;
+        return getDirection(t1.x, t1.y, t2.x, t2.y, xt, yt);
+    }
+
+    public static Direction getDirection(int t1x, int t1y, int t2x, int t2y, int xt, int yt) {
+        if (t1x == t2x) {
+            int yd = t1y - t2y;
             if (yd == 1 || yd == 1 - yt) {
                 return NORTH;
             } else if (yd == -1 || yd == yt - 1) {
                 return SOUTH;
             }
-        } else if (t1.y == t2.y) {
-            int xd = t1.x - t2.x;
+        } else if (t1y == t2y) {
+            int xd = t1x - t2x;
             if (xd == 1 || xd == 1 - xt) {
                 return WEST;
             } else if (xd == -1 || xd == xt - 1) {

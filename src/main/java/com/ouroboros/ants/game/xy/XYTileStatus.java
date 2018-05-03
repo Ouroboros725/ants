@@ -1,6 +1,7 @@
 package com.ouroboros.ants.game.xy;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by zhanxies on 4/27/2018.
@@ -10,12 +11,14 @@ public class XYTileStatus {
     private AtomicBoolean myAnt;
     private AtomicBoolean oppAnt;
     private AtomicBoolean taboo;
+    private AtomicInteger tabooDist;
     private AtomicBoolean moved;
 
     XYTileStatus() {
         myAnt = new AtomicBoolean();
         oppAnt = new AtomicBoolean();
         taboo = new AtomicBoolean();
+        tabooDist = new AtomicInteger();
         moved = new AtomicBoolean();
     }
 
@@ -23,6 +26,7 @@ public class XYTileStatus {
         myAnt.set(false);
         oppAnt.set(false);
         taboo.set(false);
+        tabooDist.set(0);
         moved.set(false);
     }
 
@@ -50,11 +54,23 @@ public class XYTileStatus {
         this.taboo.set(taboo);
     }
 
+    public int getTabooDist() {
+        return tabooDist.get();
+    }
+
+    public void setTabooDist(int dist) {
+        tabooDist.set(dist);
+    }
+
     public boolean isMoved() {
         return moved.get();
     }
 
     public void setMoved(boolean moved) {
         this.moved.set(moved);
+    }
+
+    public AtomicBoolean getMoved() {
+        return moved;
     }
 }

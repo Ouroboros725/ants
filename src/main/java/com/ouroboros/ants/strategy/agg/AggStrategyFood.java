@@ -18,9 +18,8 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.*;
-import static com.ouroboros.ants.strategy.agg.AggStrategySyncData.getFoodInfMap;
 import static com.ouroboros.ants.utils.Influence.infUpdate;
-import static com.ouroboros.ants.utils.Search.shallowDFSBack;
+import static com.ouroboros.ants.utils.Search.shallowBFSBack;
 
 /**
  * Created by zhanxies on 4/25/2018.
@@ -121,7 +120,7 @@ public class AggStrategyFood {
 
             str.moveAnts((ants, movedAnts) -> {
                 for (Tile t : foodList) {
-                    List<TileDir> tds = shallowDFSBack(t, ants, movedAnts, blocks, str.xt, str.yt, str.getFoodRadius, 1);
+                    List<TileDir> tds = shallowBFSBack(t, ants, movedAnts, blocks, str.xt, str.yt, str.getFoodRadius, 1);
                     if (!tds.isEmpty()) {
                         for (TileDir td : tds) {
                             LOGGER.debug("hav food food: {}", t);
