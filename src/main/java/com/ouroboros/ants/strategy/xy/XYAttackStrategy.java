@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 /**
@@ -21,7 +22,7 @@ import java.util.function.Consumer;
 public class XYAttackStrategy {
 
     private static final int ATTACK_DIST = 3;
-    private static final int HILL_RAID_DIST = 7;
+    private static final int HILL_RAID_DIST = 10;
 
     static void calcOppInfArea(List<Tile> oppAnts) {
         int dist = ATTACK_DIST;
@@ -37,7 +38,7 @@ public class XYAttackStrategy {
                         0));
     }
 
-    static void attackHills(List<Tile> hills, int antsNum, BiConsumer<XYTileMove, Consumer<Move>> op, Consumer<Move> move) {
+    static void attackHills(List<Tile> hills, int antsNum, BiFunction<XYTileMove, Consumer<Move>, Boolean> op, Consumer<Move> move) {
         int hillNum = hills.size();
 
         if (hillNum > 0) {
@@ -49,7 +50,7 @@ public class XYAttackStrategy {
 
             hills.parallelStream().map(XYTile::getTile)
                     .forEach(h -> {
-                        Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(129));
+                        Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
                         searched.add(h);
                         TreeSearch.breadthFirstMultiSearch(h.getNbDir(),
                                 (t, l) -> {
@@ -62,8 +63,9 @@ public class XYAttackStrategy {
                                 (l, c) -> l < dist && c.get() > 0,
                                 (t, c) -> {
                                     if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
-                                        op.accept(t, move);
-                                        c.getAndDecrement();
+                                        if (op.apply(t, move)) {
+                                            c.getAndDecrement();
+                                        }
                                     }
                                 },
                                 new AtomicInteger(attNum),

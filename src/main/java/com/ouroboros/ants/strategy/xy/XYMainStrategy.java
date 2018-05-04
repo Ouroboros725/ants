@@ -13,7 +13,12 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
 /**
@@ -26,12 +31,29 @@ public class XYMainStrategy extends AbstractStrategy {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(XYMainStrategy.class);
 
-    private static final BiConsumer<XYTileMove, Consumer<Move>> MOVE = (m, o) -> {
-        o.accept(new Move(m.getTile().getX(), m.getTile().getY(), Direction.getOppoDir(m.getDir()).getChar()));
-        m.getTile().getStatus().setMyAnt(false);
-        XYTile nt = XYTile.getTile(Direction.getOppoDir(m.getDir()).getNeighbour(m.getTile().getX(), m.getTile().getY(), XYTile.getXt(), XYTile.getYt()));
-        nt.getStatus().setMyAnt(true);
-        nt.getStatus().setMoved(true);
+    private static final Lock MOVE_LOCK = new ReentrantLock();
+
+    private static final BiFunction<XYTileMove, Consumer<Move>, Boolean> MOVE = (m, o) -> {
+        MOVE_LOCK.lock();
+        try {
+            XYTile nt = XYTile.getTile(Direction.getOppoDir(m.getDir()).getNeighbour(m.getTile().getX(), m.getTile().getY(), XYTile.getXt(), XYTile.getYt()));
+
+            if (!nt.getStatus().isMyAnt()) {
+                o.accept(new Move(m.getTile().getX(), m.getTile().getY(), Direction.getOppoDir(m.getDir()).getChar()));
+
+                m.getTile().getStatus().setMyAnt(false);
+                m.getTile().getStatus().setMoved(true);
+
+                nt.getStatus().setMyAnt(true);
+                nt.getStatus().setMoved(true);
+
+                return true;
+            }
+        } finally {
+            MOVE_LOCK.unlock();
+        }
+
+        return false;
     };
 
     private int xt;
@@ -60,8 +82,10 @@ public class XYMainStrategy extends AbstractStrategy {
         Set<XYTile> myAnts = XYTurnUpdate.getMyAnts(turnInfo.myAnts);
         XYAttackStrategy.calcOppInfArea(turnInfo.oppAnts);
         XYAttackStrategy.attackHills(turnInfo.oppHills, myAnts.size(), MOVE, output);
+        // attack
         XYDefenseStrategy.havFood(turnInfo.food, MOVE, output);
-
+        // defend
+        XYDefenseStrategy.explore(turnInfo.myAnts, MOVE, output);
 
 
     }

@@ -5,10 +5,7 @@ import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.utils.Utils;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created by zhanxies on 4/27/2018.
@@ -17,6 +14,7 @@ import java.util.Set;
 public class XYTile {
 
     private static XYTile[][] tiles;
+    private static List<XYTile> tileList;
     private static int xt;
     private static int yt;
 
@@ -24,10 +22,12 @@ public class XYTile {
         XYTile.xt = xt;
         XYTile.yt = yt;
         tiles = new XYTile[xt][yt];
+        tileList = new ArrayList<>(xt * yt);
 
         for (int x = 0; x < xt; x++) {
             for (int y = 0; y < yt; y++) {
                 tiles[x][y] = new XYTile(x, y);
+                tileList.add(tiles[x][y]);
             }
         }
 
@@ -44,6 +44,10 @@ public class XYTile {
                 tiles[x][y].status.reset();
             }
         }
+    }
+
+    public static void updateVisitInfluence() {
+        tileList.parallelStream().forEach(t -> t.getVisit().getInfluence().getAndIncrement());
     }
 
     public static int getXt() {
@@ -66,6 +70,7 @@ public class XYTile {
     private int y;
     private XYTileStatus status;
     private XYTileFood food;
+    private XYTileVisit visit;
 
     private Map<XYTile, XYTileMove> nb;
 
@@ -74,6 +79,7 @@ public class XYTile {
         this.y = y;
         this.status = new XYTileStatus();
         this.food = new XYTileFood();
+        this.visit = new XYTileVisit();
     }
 
     private void initNB() {
@@ -126,6 +132,10 @@ public class XYTile {
 
     public XYTileFood getFood() {
         return food;
+    }
+
+    public XYTileVisit getVisit() {
+        return visit;
     }
 
     public int getDist(int x1, int y1) {
