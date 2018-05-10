@@ -6,6 +6,7 @@ import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.utils.Utils;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by zhanxies on 4/27/2018.
@@ -83,7 +84,7 @@ public class XYTile {
     }
 
     private void initNB() {
-        nb = new HashMap<>(4);
+        nb = new ConcurrentHashMap<>(4);
         {
             int e = Utils.nc(x + 1, xt);
             nb.put(tiles[e][y], new XYTileMove(tiles[e][y], Direction.EAST));

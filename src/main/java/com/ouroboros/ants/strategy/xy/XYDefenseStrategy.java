@@ -5,6 +5,8 @@ import com.ouroboros.ants.game.xy.*;
 import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.Utils;
 import com.ouroboros.ants.utils.xy.TreeSearch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
  *
  */
 public class XYDefenseStrategy {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(XYDefenseStrategy.class);
 
     private static List<Tile> lastFood = new ArrayList<>();
 
@@ -64,7 +68,7 @@ public class XYDefenseStrategy {
 
         lastFood.parallelStream().filter(f -> !foodSet.contains(f)).map(XYTile::getTile).forEach(tile -> {
             int c = tile.getFood().getCount();
-            final int cnt = c < 25 ? c : 25;
+            final int cnt = c < 25 ? c : 24;
             Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(13));
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
@@ -80,9 +84,10 @@ public class XYDefenseStrategy {
             tile.getFood().setCount(0);
         });
 
-        List<XYTile> foodTarget = new ArrayList<>();
+        Set<XYTile> foodTarget = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
         food.parallelStream().map(XYTile::getTile).forEach(tile -> {
+            int cnt = tile.getFood().getCount();
             Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(13));
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
@@ -95,8 +100,10 @@ public class XYDefenseStrategy {
                     l -> l < dist,
                     (t, l) -> {
                         foodTarget.add(t);
-                        int inf = t.getFood().getInfluence();
-                        t.getFood().setInfluence(inf + inf > 0 ? foodAccInf[l] : foodInf[l]);
+                        if (cnt < 25) {
+                            int inf = t.getFood().getInfluence();
+                            t.getFood().setInfluence(inf + cnt > 0 ? foodAccInf[l] : foodInf[l]);
+                        }
                     },
                     0);
             tile.getFood().setCount(tile.getFood().getCount() + 1);
@@ -105,8 +112,12 @@ public class XYDefenseStrategy {
         lastFood.clear();
         lastFood.addAll(food);
 
+        LOGGER.info("food:" + foodTarget.size());
+
         Set<XYTile> exclude = new HashSet<>(foodTarget.size());
-        List<XYTile> toFood = foodTarget.stream().filter(t -> t.getFood().getInfluence() >= foodInf[0]).sorted((t1, t2) -> t2.getFood().getInfluence() - t1.getFood().getInfluence())
+        List<XYTile> toFood = foodTarget.stream()
+                .filter(t -> t.getFood().getInfluence() >= foodInf[0])
+                .sorted((t1, t2) -> t2.getFood().getInfluence() - t1.getFood().getInfluence())
                 .filter(tile -> {
                     if (exclude.contains(tile)) {
                         return false;
@@ -130,6 +141,8 @@ public class XYDefenseStrategy {
                 }).collect(Collectors.toList());
 
         int fDist = FOOD_HAV_DIST;
+
+        LOGGER.info("food:" + toFood.size());
 
         toFood.parallelStream().forEach(h -> {
             Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
