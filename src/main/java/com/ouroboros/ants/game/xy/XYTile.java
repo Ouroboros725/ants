@@ -4,6 +4,8 @@ import com.google.common.base.Objects;
 import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.utils.Utils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,6 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  */
 public class XYTile {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(XYTile.class);
 
     private static XYTile[][] tiles;
     private static List<XYTile> tileList;
@@ -73,7 +77,7 @@ public class XYTile {
     private XYTileFood food;
     private XYTileVisit visit;
 
-    private Map<XYTile, XYTileMove> nb;
+    private Map<XYTile, XYTileMv> nb;
 
     private XYTile(int x, int y) {
         this.x = x;
@@ -87,25 +91,27 @@ public class XYTile {
         nb = new ConcurrentHashMap<>(4);
         {
             int e = Utils.nc(x + 1, xt);
-            nb.put(tiles[e][y], new XYTileMove(tiles[e][y], Direction.EAST));
+            nb.put(tiles[e][y], new XYTileMv(tiles[e][y], Direction.EAST));
         }
         {
             int s = Utils.nc(y + 1, yt);
-            nb.put(tiles[x][s], new XYTileMove(tiles[x][s], Direction.SOUTH));
+            nb.put(tiles[x][s], new XYTileMv(tiles[x][s], Direction.SOUTH));
         }
         {
             int w = Utils.nc(x - 1, xt);
-            nb.put(tiles[w][y], new XYTileMove(tiles[w][y], Direction.WEST));
+            nb.put(tiles[w][y], new XYTileMv(tiles[w][y], Direction.WEST));
         }
         {
             int n = Utils.nc(y - 1, yt);
-            nb.put(tiles[x][n], new XYTileMove(tiles[x][n],  Direction.NORTH));
+            nb.put(tiles[x][n], new XYTileMv(tiles[x][n],  Direction.NORTH));
         }
     }
 
     public void removeFromNB() {
         for (XYTile tile : nb.keySet()) {
+            LOGGER.info("remove tile {} from {}", this, tile);
             tile.nb.remove(this);
+            LOGGER.info("nb of tile {}: {}", tile, tile.getNbDir());
         }
 
         nb.clear();
@@ -123,7 +129,7 @@ public class XYTile {
         return nb.keySet();
     }
 
-    public Collection<XYTileMove> getNbDir() {
+    public Collection<XYTileMv> getNbDir() {
         return nb.values();
     }
 
@@ -151,9 +157,9 @@ public class XYTile {
         return Utils.distManh(x, y, tile.x, tile.y, xt, yt);
     }
 
-    public XYTileMove getMove(XYTile tile) {
+    public XYTileMv getMove(XYTile tile) {
         Direction dir = Direction.getDirection(x, y, tile.x, tile.y, xt, yt);
-        return new XYTileMove(this, dir);
+        return new XYTileMv(this, dir);
     }
 
     @Override
@@ -168,5 +174,13 @@ public class XYTile {
     @Override
     public int hashCode() {
         return Objects.hashCode(x, y);
+    }
+
+    @Override
+    public String toString() {
+        return "XYTile{" +
+                "y=" + y +
+                ", x=" + x +
+                '}';
     }
 }

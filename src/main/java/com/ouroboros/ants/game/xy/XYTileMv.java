@@ -6,11 +6,11 @@ import com.ouroboros.ants.game.Direction;
  * Created by Sand on 5/2/2018.
  *
  */
-public class XYTileMove {
+public class XYTileMv {
     private XYTile tile;
     private Direction dir;
 
-    public XYTileMove(XYTile tile, Direction dir) {
+    public XYTileMv(XYTile tile, Direction dir) {
         this.tile = tile;
         this.dir = dir;
     }
@@ -21,5 +21,13 @@ public class XYTileMove {
 
     public Direction getDir() {
         return dir;
+    }
+
+    @Override
+    public String toString() {
+        return "XYTileMove{" +
+                "dir=" + dir +
+                ", tile=" + tile +
+                '}';
     }
 }

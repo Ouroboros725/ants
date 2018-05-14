@@ -1,7 +1,7 @@
 package com.ouroboros.ants.utils.xy;
 
 import com.ouroboros.ants.game.xy.XYTile;
-import com.ouroboros.ants.game.xy.XYTileMove;
+import com.ouroboros.ants.game.xy.XYTileMv;
 
 import java.util.Collection;
 import java.util.List;
@@ -28,10 +28,10 @@ public class TreeSearch {
         }
     }
 
-    public static void breadthFirstMultiSearch(Collection<XYTileMove> tiles, BiPredicate<XYTileMove, Integer> visit,
-                                               BiPredicate<Integer, AtomicInteger> cont, BiConsumer<XYTileMove, AtomicInteger> update,
+    public static void breadthFirstMultiSearch(Collection<XYTileMv> tiles, BiPredicate<XYTileMv, Integer> visit,
+                                               BiPredicate<Integer, AtomicInteger> cont, BiConsumer<XYTileMv, AtomicInteger> update,
                                                AtomicInteger cnt, Integer level) {
-        List<XYTileMove> rt = tiles.parallelStream().filter(t -> visit.test(t, level)).collect(Collectors.toList());
+        List<XYTileMv> rt = tiles.parallelStream().filter(t -> visit.test(t, level)).collect(Collectors.toList());
         if (!rt.isEmpty()) {
             rt.parallelStream().forEach(t -> update.accept(t, cnt));
 

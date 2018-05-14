@@ -84,6 +84,13 @@ public enum Direction {
     private interface NeighbourGetter {
         Tile get(int x, int y, int xt, int yt);
     }
+
+    @Override
+    public String toString() {
+        return "Direction{" +
+                "c=" + c +
+                '}';
+    }
 }
 
 

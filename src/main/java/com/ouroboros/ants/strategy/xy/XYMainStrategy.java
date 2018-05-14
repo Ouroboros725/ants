@@ -3,7 +3,7 @@ package com.ouroboros.ants.strategy.xy;
 import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Global;
 import com.ouroboros.ants.game.xy.XYTile;
-import com.ouroboros.ants.game.xy.XYTileMove;
+import com.ouroboros.ants.game.xy.XYTileMv;
 import com.ouroboros.ants.info.Turn;
 import com.ouroboros.ants.strategy.AbstractStrategy;
 import com.ouroboros.ants.utils.Move;
@@ -12,12 +12,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
@@ -33,7 +29,7 @@ public class XYMainStrategy extends AbstractStrategy {
 
     private static final Lock MOVE_LOCK = new ReentrantLock();
 
-    private static final BiFunction<XYTileMove, Consumer<Move>, Boolean> MOVE = (m, o) -> {
+    private static final BiFunction<XYTileMv, Consumer<Move>, Boolean> MOVE = (m, o) -> {
         MOVE_LOCK.lock();
         try {
             XYTile nt = XYTile.getTile(Direction.getOppoDir(m.getDir()).getNeighbour(m.getTile().getX(), m.getTile().getY(), XYTile.getXt(), XYTile.getYt()));
@@ -79,9 +75,9 @@ public class XYMainStrategy extends AbstractStrategy {
         XYTile.resetStatus();
 
         XYTurnUpdate.updateWater(turnInfo.water);
-        Set<XYTile> myAnts = XYTurnUpdate.getMyAnts(turnInfo.myAnts);
+        XYTurnUpdate.getMyAnts(turnInfo.myAnts);
         XYAttackStrategy.calcOppInfArea(turnInfo.oppAnts);
-        XYAttackStrategy.attackHills(turnInfo.oppHills, myAnts.size(), MOVE, output);
+        XYAttackStrategy.attackHills(turnInfo.oppHills, turnInfo.myAnts.size(), MOVE, output);
         // attack
         XYDefenseStrategy.havFood(turnInfo.food, MOVE, output);
         // defend

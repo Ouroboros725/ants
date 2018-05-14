@@ -1,11 +1,11 @@
 package com.ouroboros.ants.game.xy;
 
-public class XYTileMoveWeighted {
+public class XYTileMvWt {
 
     private int weight;
-    private XYTileMove tile;
+    private XYTileMv tile;
 
-    public XYTileMoveWeighted(XYTileMove tile, int weight) {
+    public XYTileMvWt(XYTileMv tile, int weight) {
         this.tile = tile;
         this.weight = weight;
     }
@@ -18,11 +18,11 @@ public class XYTileMoveWeighted {
         this.weight = weight;
     }
 
-    public XYTileMove getTile() {
+    public XYTileMv getTile() {
         return tile;
     }
 
-    public void setTile(XYTileMove tile) {
+    public void setTile(XYTileMv tile) {
         this.tile = tile;
     }
 }

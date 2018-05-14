@@ -2,11 +2,11 @@ package com.ouroboros.ants.game.xy;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class XYTileMoveAggWt {
+public class XYTileMvAggWt {
     private AtomicInteger weight;
-    private XYTileMove move;
+    private XYTileMv move;
 
-    public XYTileMoveAggWt(XYTileMove move) {
+    public XYTileMvAggWt(XYTileMv move) {
         this.weight = new AtomicInteger();
         this.move = move;
     }
@@ -19,11 +19,11 @@ public class XYTileMoveAggWt {
         this.weight.set(weight);
     }
 
-    public XYTileMove getMove() {
+    public XYTileMv getMove() {
         return move;
     }
 
-    public void setMove(XYTileMove move) {
+    public void setMove(XYTileMv move) {
         this.move = move;
     }
 }

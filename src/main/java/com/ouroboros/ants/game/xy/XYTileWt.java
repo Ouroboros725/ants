@@ -1,10 +1,10 @@
 package com.ouroboros.ants.game.xy;
 
-public class XYTileWeighted {
+public class XYTileWt {
     private int weight;
     private XYTile tile;
 
-    public XYTileWeighted(XYTile tile, int weight) {
+    public XYTileWt(XYTile tile, int weight) {
         this.tile = tile;
         this.weight = weight;
     }

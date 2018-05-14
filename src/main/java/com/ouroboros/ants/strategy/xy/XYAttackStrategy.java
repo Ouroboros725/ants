@@ -2,7 +2,7 @@ package com.ouroboros.ants.strategy.xy;
 
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.game.xy.XYTile;
-import com.ouroboros.ants.game.xy.XYTileMove;
+import com.ouroboros.ants.game.xy.XYTileMv;
 import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.xy.TreeSearch;
 
@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
@@ -38,7 +37,7 @@ public class XYAttackStrategy {
                         0));
     }
 
-    static void attackHills(List<Tile> hills, int antsNum, BiFunction<XYTileMove, Consumer<Move>, Boolean> op, Consumer<Move> move) {
+    static void attackHills(List<Tile> hills, int antsNum, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
         int hillNum = hills.size();
 
         if (hillNum > 0) {
