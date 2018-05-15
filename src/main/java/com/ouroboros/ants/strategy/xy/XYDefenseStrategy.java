@@ -1,17 +1,15 @@
 package com.ouroboros.ants.strategy.xy;
 
-import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Tile;
-import com.ouroboros.ants.game.xy.*;
+import com.ouroboros.ants.game.xy.XYTile;
+import com.ouroboros.ants.game.xy.XYTileMv;
 import com.ouroboros.ants.utils.Move;
-import com.ouroboros.ants.utils.Utils;
 import com.ouroboros.ants.utils.xy.TreeSearch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -26,11 +24,9 @@ public class XYDefenseStrategy {
     private static final Logger LOGGER = LoggerFactory.getLogger(XYDefenseStrategy.class);
 
     private static List<Tile> lastFood = new ArrayList<>();
-    private static Map<XYTile, XYTile> exploreTask = new ConcurrentHashMap<>();
 
     private static final int FOOD_DIST = 3;
     private static final int FOOD_HAV_DIST = 10;
-    private static final int EXPLORE_DIST = 10;
 
     private static int[] foodInf;
     private static int[] foodAccInf;
@@ -178,122 +174,5 @@ public class XYDefenseStrategy {
         });
     }
 
-    static void explore(List<Tile> myAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
-        XYTile.updateVisitInfluence();
 
-        int dist = EXPLORE_DIST;
-
-        Set<XYTile> updated = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
-            TreeSearch.depthFirstFill(tile,
-                    (t, l) -> {
-                        if (!searched.contains(t)) {
-                            searched.add(t);
-                            return true;
-                        }
-                        return false;
-                    },
-                    l -> l < dist,
-                    (t, l) -> {
-                        if (!updated.contains(t)) {
-                            updated.add(t);
-                            t.getVisit().setInfluence(0);
-                        }
-                    },
-                    0);
-        });
-
-        Set<XYTile> border = Collections.newSetFromMap(new ConcurrentHashMap<>(myAnts.size()));
-
-        LOGGER.info("my explore ants: {}", myAnts);
-
-        myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            LOGGER.info("explore ant: {}", tile);
-
-            boolean toExplore = tile.getStatus().isMyAnt() && !tile.getStatus().isMoved();
-
-            List<XYTileMvAggWt> wList = tile.getNbDir().stream().map(XYTileMvAggWt::new).collect(Collectors.toList());
-
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
-            wList.parallelStream().filter(nbt -> !nbt.getMove().getTile().getStatus().isTaboo() && !nbt.getMove().getTile().getStatus().isMyAnt())
-                    .forEach(nbt -> TreeSearch.depthFirstFill(nbt.getMove().getTile(),
-                            (t, l) -> {
-                                if (!searched.contains(t)) {
-                                    searched.add(t);
-                                    return true;
-                                }
-                                return false;
-                            },
-                            l -> l < dist,
-                            (t, l) -> {
-                                int w = t.getVisit().getInfluence().get();
-                                if (w > 0) {
-                                    border.add(t);
-                                    if (toExplore) {
-                                        nbt.getWeight().set(nbt.getWeight().get() + w);
-                                    }
-                                }
-                            },
-                            0));
-
-            if (toExplore) {
-                Optional<XYTileMvAggWt> rw = wList.stream().filter(t -> t.getWeight().get() > 0).max((t1, t2) -> {
-                    int weight = t1.getWeight().get() - t2.getWeight().get();
-                    return weight != 0 ? weight : ThreadLocalRandom.current().nextInt(2) - 1;
-                });
-
-                rw.ifPresent(t -> {
-                    LOGGER.info("imm explore: {}", tile);
-                    op.apply(new XYTileMv(tile, Direction.getOppoDir(t.getMove().getDir())), move);
-                });
-            }
-        });
-
-        LOGGER.info("border: {}", border);
-
-        {
-            exploreTask.entrySet().removeIf(entry -> {
-                XYTile tile = entry.getKey();
-                return !tile.getStatus().isMyAnt() || tile.getStatus().isMoved();
-            });
-
-            Set<XYTile> et = new HashSet<>(exploreTask.keySet());
-
-            et.parallelStream().forEach(tile -> {
-                XYTile tg = exploreTask.remove(tile);
-                Optional<XYTileMvWt> tmw = tile.getNbDir().parallelStream().filter(nbt -> !nbt.getTile().getStatus().isTaboo() && !nbt.getTile().getStatus().isMyAnt())
-                        .map(nbt -> new XYTileMvWt(nbt, Utils.distManh(tg.getX(), tg.getY(), nbt.getTile().getX(), nbt.getTile().getY(), XYTile.getXt(), XYTile.getYt()))).min(Comparator.comparingInt(XYTileMvWt::getWeight));
-                tmw.ifPresent(t -> {
-                    if (!t.getTile().getTile().equals(tg)) {
-                        exploreTask.put(t.getTile().getTile(), tg);
-                    }
-                    op.apply(new XYTileMv(tile, Direction.getOppoDir(t.getTile().getDir())), move);
-                });
-            });
-        }
-
-        if (!border.isEmpty()) {
-            myAnts.parallelStream().map(XYTile::getTile).filter(t -> t.getStatus().isMyAnt() && !t.getStatus().isMoved()).forEach(tile -> {
-                Optional<XYTileWt> tw = border.parallelStream().map(b -> new XYTileWt(b, Utils.distManh(b.getX(), b.getY(), tile.getX(), tile.getY(), XYTile.getXt(), XYTile.getYt()))).max(
-                        (t1, t2) -> {
-                            int dw = t1.getWeight() - t2.getWeight();
-                            return dw != 0 ? dw : ThreadLocalRandom.current().nextInt(2) - 1;
-                        });
-
-                LOGGER.info("border explore: {}", tile);
-                LOGGER.info("border nb of {}: {}", tile, tile.getNbDir());
-
-                tw.ifPresent(tg -> {
-                    border.remove(tg.getTile());
-                    Optional<XYTileMvWt> tmw = tile.getNbDir().parallelStream().filter(nbt -> !nbt.getTile().getStatus().isTaboo() && !nbt.getTile().getStatus().isMyAnt())
-                            .map(nbt -> new XYTileMvWt(nbt, Utils.distManh(tg.getTile().getX(), tg.getTile().getY(), nbt.getTile().getX(), nbt.getTile().getY(), XYTile.getXt(), XYTile.getYt()))).min(Comparator.comparingInt(XYTileMvWt::getWeight));
-                    tmw.ifPresent(t -> {
-                        exploreTask.put(t.getTile().getTile(), tg.getTile());
-                        op.apply(new XYTileMv(tile, Direction.getOppoDir(t.getTile().getDir())), move);
-                    });
-                });
-            });
-        }
-    }
 }

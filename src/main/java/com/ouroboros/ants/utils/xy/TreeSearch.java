@@ -2,9 +2,14 @@ package com.ouroboros.ants.utils.xy;
 
 import com.ouroboros.ants.game.xy.XYTile;
 import com.ouroboros.ants.game.xy.XYTileMv;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
@@ -16,6 +21,8 @@ import java.util.stream.Collectors;
  *
  */
 public class TreeSearch {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(TreeSearch.class);
 
     public static void depthFirstFill(XYTile tile, BiPredicate<XYTile, Integer> visit,
                                       Predicate<Integer> cont, BiConsumer<XYTile, Integer> update, Integer level) {
@@ -41,5 +48,31 @@ public class TreeSearch {
             }
         }
 
+    }
+
+    public static XYTileMv breadthFirstLink(Map<XYTileMv, XYTileMv> start, XYTile goal, Predicate<XYTile> visit, List<XYTileMv> links) {
+        List<Map.Entry<XYTileMv, XYTileMv>> targets = start.entrySet().parallelStream()
+                .filter(entry -> visit.test(entry.getKey().getTile())).collect(Collectors.toList());
+
+        AtomicBoolean find = new AtomicBoolean(false);
+        targets.parallelStream().filter(entry -> entry.getKey().getTile().equals(goal)).findAny().ifPresent(entry -> {
+            links.add(entry.getKey());
+            find.set(true);
+        });
+
+        if (find.get()) {
+            return start.get(links.get(0));
+        } else {
+            Map<XYTileMv, XYTileMv> ns = new ConcurrentHashMap<>();
+            targets.parallelStream().forEach(entry -> {
+                XYTileMv mv = entry.getKey();
+                mv.getTile().getNbDir().parallelStream().forEach(nbt -> ns.put(nbt, mv));
+            });
+
+            XYTileMv nx = breadthFirstLink(ns, goal, visit, links);
+            links.add(nx);
+
+            return start.get(nx);
+        }
     }
 }

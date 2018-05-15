@@ -81,7 +81,7 @@ public class XYMainStrategy extends AbstractStrategy {
         // attack
         XYDefenseStrategy.havFood(turnInfo.food, MOVE, output);
         // defend
-        XYDefenseStrategy.explore(turnInfo.myAnts, MOVE, output);
+        XYAttackStrategy.explore(turnInfo.myAnts, MOVE, output);
 
 
     }
