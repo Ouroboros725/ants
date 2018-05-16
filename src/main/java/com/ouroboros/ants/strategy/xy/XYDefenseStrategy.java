@@ -28,6 +28,8 @@ public class XYDefenseStrategy {
     private static final int FOOD_DIST = 3;
     private static final int FOOD_HAV_DIST = 10;
 
+    private static final int DEFENCE_DIST = 10;
+
     private static int[] foodInf;
     private static int[] foodAccInf;
     private static int[][] foodDecInf;
@@ -174,5 +176,70 @@ public class XYDefenseStrategy {
         });
     }
 
+    static void defendHill(List<Tile> hills, int antsNum, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
+        int hillNum = hills.size();
 
+        if (hillNum > 0) {
+            int pAttNum = (int) (antsNum * 0.025);
+            int defPHill = pAttNum / hillNum;
+            int attNum = defPHill > 1 ? defPHill : 1;
+
+            int dist = DEFENCE_DIST;
+
+            Map<XYTile, XYTile> oppAnts = new ConcurrentHashMap<>();
+            hills.parallelStream().map(XYTile::getTile).forEach(tile -> {
+                Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
+
+                TreeSearch.depthFirstFill(tile,
+                        (t, l) -> {
+                            return searched.add(t);
+                        },
+                        l -> l < dist,
+                        (t, l) -> {
+                            if (t.getStatus().isOppAnt()) {
+                                oppAnts.put(t, tile);
+                            }
+                        },
+                        0);
+            });
+
+            if (!oppAnts.isEmpty()) {
+                Set<XYTile> kSpot = Collections.newSetFromMap(new ConcurrentHashMap<>(oppAnts.size()));
+
+                oppAnts.entrySet().parallelStream().forEach(entry -> {
+                    List<XYTileMv> steps = new ArrayList<>();
+                    Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>());
+                    searched.add(entry.getKey());
+                    Map<XYTileMv, XYTileMv> start = new HashMap<>();
+                    entry.getKey().getNbDir().parallelStream().forEach(t -> start.put(t, null));
+                    TreeSearch.breadthFirstLink(start, entry.getValue(), searched::add, steps);
+                    if (!steps.isEmpty()) {
+                        kSpot.add(steps.get(steps.size() / 2).getTile());
+                    }
+                });
+
+                kSpot.parallelStream().forEach(tile -> {
+                    Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>());
+                    searched.add(tile);
+
+                    TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
+                            (t, l) -> {
+                                return searched.add(t.getTile());
+                            },
+                            (l, c) -> l < dist && c.get() > 0,
+                            (t, c) -> {
+                                if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
+                                    if (op.apply(t, move)) {
+                                        LOGGER.info("defend hill: {}", t.getTile());
+                                        c.getAndDecrement();
+                                    }
+                                }
+                            },
+                            new AtomicInteger(attNum),
+                            0
+                    );
+                });
+            }
+        }
+    }
 }

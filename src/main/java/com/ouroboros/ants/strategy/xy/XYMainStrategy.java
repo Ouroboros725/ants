@@ -75,12 +75,13 @@ public class XYMainStrategy extends AbstractStrategy {
         XYTile.resetStatus();
 
         XYTurnUpdate.updateWater(turnInfo.water);
-        XYTurnUpdate.getMyAnts(turnInfo.myAnts);
+        XYTurnUpdate.updateMyAnts(turnInfo.myAnts);
+        XYTurnUpdate.updateOppAnts(turnInfo.oppAnts);
         XYAttackStrategy.calcOppInfArea(turnInfo.oppAnts);
         XYAttackStrategy.attackHills(turnInfo.oppHills, turnInfo.myAnts.size(), MOVE, output);
         // attack
         XYDefenseStrategy.havFood(turnInfo.food, MOVE, output);
-        // defend
+        XYDefenseStrategy.defendHill(turnInfo.myHills, turnInfo.myAnts.size(), MOVE, output);
         XYAttackStrategy.explore(turnInfo.myAnts, MOVE, output);
 
 

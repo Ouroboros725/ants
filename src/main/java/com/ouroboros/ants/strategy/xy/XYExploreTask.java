@@ -25,7 +25,7 @@ public class XYExploreTask {
         this.ant = ant;
         this.goal = goal;
         this.stepCnt = 17;
-        this.steps = new ArrayList<>();
+        this.steps = new LinkedList<>();
 
         plan();
     }
@@ -34,6 +34,7 @@ public class XYExploreTask {
         LOGGER.info("explore ant: {}", ant);
         LOGGER.info("explore goal: {}", goal);
         Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        searched.add(goal);
         Map<XYTileMv, XYTileMv> start = new HashMap<>();
         goal.getNbDir().parallelStream().forEach(t -> start.put(t, null));
         TreeSearch.breadthFirstLink(start, ant, t -> searched.add(t), steps);

@@ -15,7 +15,11 @@ public class XYTurnUpdate {
         water.parallelStream().forEach(w -> XYTile.getTile(w).removeFromNB());
     }
 
-    static void getMyAnts(List<Tile> ants) {
+    static void updateMyAnts(List<Tile> ants) {
         ants.parallelStream().map(XYTile::getTile).forEach(t -> t.getStatus().setMyAnt(true));
+    }
+
+    static void updateOppAnts(List<Tile> ants) {
+        ants.parallelStream().map(XYTile::getTile).forEach(t -> t.getStatus().setOppAnt(true));
     }
 }
