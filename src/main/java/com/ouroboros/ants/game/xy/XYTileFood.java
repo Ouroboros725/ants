@@ -24,6 +24,10 @@ public class XYTileFood {
         this.count.set(count);
     }
 
+    public void incCount() {
+        this.count.incrementAndGet();
+    }
+
     public int getInfluence() {
         return influence.get();
     }

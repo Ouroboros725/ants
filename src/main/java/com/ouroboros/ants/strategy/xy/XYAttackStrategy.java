@@ -30,6 +30,7 @@ public class XYAttackStrategy {
     private static final int ATTACK_DIST = 3;
     private static final int HILL_RAID_DIST = 10;
     private static final int EXPLORE_DIST = 10;
+    private static final int ENEMY_DIST = 10;
 
     static void calcOppInfArea(List<Tile> oppAnts) {
         int dist = ATTACK_DIST;
@@ -176,7 +177,7 @@ public class XYAttackStrategy {
                         (t1, t2) -> {
                             int di = t1.getTile().getVisit().getInfluence().get() - t2.getTile().getVisit().getInfluence().get();
                             if (di == 0) {
-                                int dw = t1.getWeight() - t2.getWeight();
+                                int dw = t2.getWeight() - t1.getWeight();
                                 return dw != 0 ? dw : ThreadLocalRandom.current().nextInt(2) - 1;
                             } else {
                                 return di;
@@ -208,5 +209,24 @@ public class XYAttackStrategy {
         } else {
             exploreTaskLink.put(tile, task);
         }
+    }
+
+    public static void attackEnemy(List<Tile> myAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
+        int dist = ENEMY_DIST;
+
+        myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
+            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
+            TreeSearch.depthFirstFill(tile,
+                    (t, l) -> {
+                        return searched.add(t);
+                    },
+                    l -> l < dist,
+                    (t, l) -> {
+                        if (t.getStatus().isOppAnt()) {
+                            tile.getStatus().incEnemyCnt();
+                        }
+                    },
+                    0);
+        });
     }
 }

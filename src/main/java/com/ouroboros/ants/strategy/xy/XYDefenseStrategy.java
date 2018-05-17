@@ -107,13 +107,13 @@ public class XYDefenseStrategy {
                         }
                     },
                     0);
-            tile.getFood().setCount(tile.getFood().getCount() + 1);
+            tile.getFood().incCount();
         });
 
         lastFood.clear();
         lastFood.addAll(food);
 
-        LOGGER.info("food:" + foodTarget.size());
+        LOGGER.info("food: {}", foodTarget.size());
 
         Set<XYTile> exclude = new HashSet<>(foodTarget.size());
         List<XYTile> toFood = foodTarget.stream()
@@ -146,7 +146,7 @@ public class XYDefenseStrategy {
 
         int fDist = FOOD_HAV_DIST;
 
-        LOGGER.info("food:" + toFood.size());
+        LOGGER.info("food: {}", toFood.size());
 
         toFood.parallelStream().forEach(h -> {
             Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
@@ -235,7 +235,7 @@ public class XYDefenseStrategy {
                                     }
                                 }
                             },
-                            new AtomicInteger(attNum),
+                            new AtomicInteger(1),
                             0
                     );
                 });
