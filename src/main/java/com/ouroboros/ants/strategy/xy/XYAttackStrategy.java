@@ -1,5 +1,7 @@
 package com.ouroboros.ants.strategy.xy;
 
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.game.xy.*;
@@ -30,7 +32,7 @@ public class XYAttackStrategy {
     private static final int ATTACK_DIST = 3;
     private static final int HILL_RAID_DIST = 10;
     private static final int EXPLORE_DIST = 10;
-    private static final int ENEMY_DIST = 10;
+    private static final int ENEMY_DIST = 5;
 
     static void calcOppInfArea(List<Tile> oppAnts) {
         int dist = ATTACK_DIST;
@@ -211,22 +213,51 @@ public class XYAttackStrategy {
         }
     }
 
-    public static void attackEnemy(List<Tile> myAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
+    public static void attackEnemy(List<Tile> oppAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
         int dist = ENEMY_DIST;
 
-        myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
+        Multimap<XYTile, XYTile> myAnts = MultimapBuilder.hashKeys().linkedListValues().build();
+        Multimap<XYTile, XYTile> enemyAnts = MultimapBuilder.hashKeys().linkedListValues().build();
+
+        oppAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
             Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
+            enemyAnts.put(tile, tile);
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
                         return searched.add(t);
                     },
                     l -> l < dist,
                     (t, l) -> {
-                        if (t.getStatus().isOppAnt()) {
+                        if (t.getStatus().isMyAnt() && !t.getStatus().isMoved()) {
+                            myAnts.put(tile, t);
+                        } else if (t.getStatus().isOppAnt()) {
                             tile.getStatus().incEnemyCnt();
+                            enemyAnts.put(tile, t);
                         }
                     },
                     0);
         });
+
+        List<XYTile> toFight = oppAnts.parallelStream().map(XYTile::getTile)
+                .filter(t -> t.getStatus().getEnemyCnt() > 0)
+                .sorted((t1, t2) -> {
+                    return t2.getStatus().getEnemyCnt() - t1.getStatus().getEnemyCnt();
+                }).collect(Collectors.toList());
+
+        Set<XYTile> dupAnts = new HashSet<>();
+        Set<XYTile> candAnts = new HashSet<>(toFight);
+        toFight.stream().forEachOrdered(tile -> {
+            if (!dupAnts.contains(tile)) {
+                enemyAnts.get(tile).parallelStream().filter(t -> !t.equals(tile) && candAnts.contains(t)).forEach(t -> dupAnts.add(t));
+            }
+        });
+
+        toFight.removeAll(dupAnts);
+
+        if (!toFight.isEmpty()) {
+            LOGGER.info("enemies to hunt: {}", toFight.size());
+            LOGGER.info("enemies to hunt team: {}", myAnts.get(toFight.get(0)));
+            LOGGER.info("enemies to hunt opp: {}", enemyAnts.get(toFight.get(0)));
+        }
     }
 }
