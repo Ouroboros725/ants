@@ -1,10 +1,11 @@
 package com.ouroboros.ants.strategy.xy;
 
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
 import com.ouroboros.ants.game.Direction;
 import com.ouroboros.ants.game.Tile;
-import com.ouroboros.ants.game.xy.*;
+import com.ouroboros.ants.game.xy.XYTile;
+import com.ouroboros.ants.game.xy.XYTileMv;
+import com.ouroboros.ants.game.xy.XYTileMvAggWt;
+import com.ouroboros.ants.game.xy.XYTileWt;
 import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.Utils;
 import com.ouroboros.ants.utils.xy.TreeSearch;
@@ -216,12 +217,15 @@ public class XYAttackStrategy {
     public static void attackEnemy(List<Tile> oppAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
         int dist = ENEMY_DIST;
 
-        Multimap<XYTile, XYTile> myAnts = MultimapBuilder.hashKeys().linkedListValues().build();
-        Multimap<XYTile, XYTile> enemyAnts = MultimapBuilder.hashKeys().linkedListValues().build();
+        Map<XYTile, Set<XYTile>> myAnts = new ConcurrentHashMap<>();
+        Map<XYTile, Set<XYTile>> enemyAnts = new ConcurrentHashMap<>();
 
         oppAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
             Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
-            enemyAnts.put(tile, tile);
+            myAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
+            enemyAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
+            enemyAnts.get(tile).add(tile);
+
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
                         return searched.add(t);
@@ -229,10 +233,10 @@ public class XYAttackStrategy {
                     l -> l < dist,
                     (t, l) -> {
                         if (t.getStatus().isMyAnt() && !t.getStatus().isMoved()) {
-                            myAnts.put(tile, t);
+                            myAnts.get(tile).add(t);
                         } else if (t.getStatus().isOppAnt()) {
                             tile.getStatus().incEnemyCnt();
-                            enemyAnts.put(tile, t);
+                            enemyAnts.get(tile).add(t);
                         }
                     },
                     0);
@@ -244,20 +248,26 @@ public class XYAttackStrategy {
                     return t2.getStatus().getEnemyCnt() - t1.getStatus().getEnemyCnt();
                 }).collect(Collectors.toList());
 
-        Set<XYTile> dupAnts = new HashSet<>();
-        Set<XYTile> candAnts = new HashSet<>(toFight);
+        Set<XYTile> dupAnts = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap());
         toFight.stream().forEachOrdered(tile -> {
             if (!dupAnts.contains(tile)) {
-                enemyAnts.get(tile).parallelStream().filter(t -> !t.equals(tile) && candAnts.contains(t)).forEach(t -> dupAnts.add(t));
+                enemyAnts.get(tile).parallelStream().filter(t -> !t.equals(tile) && toFight.contains(t))
+                        .forEach(t -> {
+                            LOGGER.info("merge hunt ants: {} {}", t, myAnts.get(t));
+                            myAnts.get(tile).addAll(myAnts.get(t));
+                            dupAnts.add(t);
+                        });
             }
         });
 
         toFight.removeAll(dupAnts);
 
         if (!toFight.isEmpty()) {
-            LOGGER.info("enemies to hunt: {}", toFight.size());
+            LOGGER.info("enemies to hunt 2: {}", toFight.size());
             LOGGER.info("enemies to hunt team: {}", myAnts.get(toFight.get(0)));
             LOGGER.info("enemies to hunt opp: {}", enemyAnts.get(toFight.get(0)));
         }
+
+        // find center of team ants
     }
 }
