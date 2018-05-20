@@ -81,8 +81,8 @@ public class XYMainStrategy extends AbstractStrategy {
         XYAttackStrategy.calcOppInfArea(turnInfo.oppAnts);
         XYAttackStrategy.attackHills(turnInfo.oppHills, turnInfo.myAnts.size(), MOVE, output);
         XYDefenseStrategy.havFood(turnInfo.food, MOVE, output);
-        XYAttackStrategy.attackEnemy(turnInfo.oppAnts, MOVE, output);
         XYDefenseStrategy.defendHill(turnInfo.myHills, turnInfo.myAnts.size(), MOVE, output);
+        XYAttackStrategy.attackEnemy(turnInfo.oppAnts, MOVE, output);
         XYAttackStrategy.explore(turnInfo.myAnts, MOVE, output);
 
 
