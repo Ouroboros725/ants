@@ -28,6 +28,8 @@ public class Turn implements Game {
 
     public boolean gameEnd;
 
+    private static final boolean P_STRIKE = Boolean.valueOf(System.getProperty("pStrike", "false"));
+
     public Turn(List<String> info) {
         try {
             for (String line : info) {
@@ -73,6 +75,13 @@ public class Turn implements Game {
                 } else if (tokens.length == 1 && "end".equals(tokens[0])) {
                     gameEnd = true;
                     break;
+                }
+            }
+
+            if (P_STRIKE) {
+                Tile ht = Tile.getTile(46, 46);
+                if (!oppHills.contains(ht)) {
+                    oppHills.add(ht);
                 }
             }
 

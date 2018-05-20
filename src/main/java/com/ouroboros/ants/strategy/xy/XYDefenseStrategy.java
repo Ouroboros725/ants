@@ -28,7 +28,7 @@ public class XYDefenseStrategy {
     private static final int FOOD_DIST = 3;
     private static final int FOOD_HAV_DIST = 10;
 
-    private static final int DEFENCE_DIST = 10;
+    private static final int DEFENCE_DIST = 12;
 
     private static int[] foodInf;
     private static int[] foodAccInf;
@@ -204,7 +204,7 @@ public class XYDefenseStrategy {
             });
 
             if (!oppAnts.isEmpty()) {
-                Set<XYTile> kSpot = Collections.newSetFromMap(new ConcurrentHashMap<>(oppAnts.size()));
+                Map<XYTile, Integer> kSpot = new ConcurrentHashMap<>(oppAnts.size());
 
                 oppAnts.entrySet().parallelStream().forEach(entry -> {
                     List<XYTileMv> steps = new ArrayList<>();
@@ -214,11 +214,11 @@ public class XYDefenseStrategy {
                     entry.getKey().getNbDir().parallelStream().forEach(t -> start.put(t, null));
                     TreeSearch.breadthFirstLink(start, entry.getValue(), searched::add, steps);
                     if (!steps.isEmpty()) {
-                        kSpot.add(steps.get(steps.size() / 2).getTile());
+                        kSpot.put(steps.get(steps.size() / 2).getTile(), steps.size());
                     }
                 });
 
-                kSpot.parallelStream().forEach(tile -> {
+                kSpot.entrySet().parallelStream().sorted(Map.Entry.comparingByValue()).map(Map.Entry::getKey).forEachOrdered(tile -> {
                     Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>());
                     searched.add(tile);
 
