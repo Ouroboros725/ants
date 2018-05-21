@@ -8,6 +8,7 @@ import com.ouroboros.ants.game.xy.XYTileMvAggWt;
 import com.ouroboros.ants.game.xy.XYTileWt;
 import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.Utils;
+import com.ouroboros.ants.utils.xy.Minimax;
 import com.ouroboros.ants.utils.xy.TreeSearch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ public class XYAttackStrategy {
     private static final int HILL_RAID_DIST = 10;
     private static final int EXPLORE_DIST = 10;
     private static final int ENEMY_DIST = 5;
+    private static final int COMBAT_DIST = 7;
 
     static void calcOppInfArea(List<Tile> oppAnts) {
         int dist = ATTACK_DIST;
@@ -221,10 +223,9 @@ public class XYAttackStrategy {
         Map<XYTile, Set<XYTile>> enemyAnts = new ConcurrentHashMap<>();
 
         oppAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
+            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(41));
             myAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
             enemyAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
-            enemyAnts.get(tile).add(tile);
 
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
@@ -243,7 +244,7 @@ public class XYAttackStrategy {
         });
 
         List<XYTile> toFight = oppAnts.parallelStream().map(XYTile::getTile)
-                .filter(t -> t.getStatus().getEnemyCnt() > 0)
+                .filter(t -> t.getStatus().getEnemyCnt() > 1)
                 .sorted((t1, t2) -> {
                     return t2.getStatus().getEnemyCnt() - t1.getStatus().getEnemyCnt();
                 }).collect(Collectors.toList());
@@ -268,6 +269,73 @@ public class XYAttackStrategy {
             LOGGER.info("enemies to hunt opp: {}", enemyAnts.get(toFight.get(0)));
         }
 
-        // find center of team ants
+        List<XYTile> cTargets = new ArrayList<>(toFight.size());
+        toFight.parallelStream().forEachOrdered(t -> {
+            XYTile ct = findCenter(myAnts.get(t));
+            if (ct != null) {
+                cTargets.add(ct);
+            }
+        });
+
+        int cDist = COMBAT_DIST;
+
+        Set<XYTile> included = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        Map<XYTile, Set<XYTile>> combMyAnts = new ConcurrentHashMap<>();
+        Map<XYTile, Set<XYTile>> combOppAnts = new ConcurrentHashMap<>();
+        cTargets.parallelStream().forEachOrdered(tile -> {
+            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(85));
+            combMyAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
+            combOppAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
+
+            TreeSearch.depthFirstFill(tile,
+                    (t, l) -> {
+                        return searched.add(t);
+                    },
+                    l -> l < cDist,
+                    (t, l) -> {
+                        if (t.getStatus().isMyAnt() && !t.getStatus().isMoved() && included.add(t)) {
+                            combMyAnts.get(tile).add(t);
+                        } else if (t.getStatus().isOppAnt()) {
+                            combOppAnts.get(tile).add(t);
+                        }
+                    },
+                    0);
+        });
+
+        if (!cTargets.isEmpty()) {
+            LOGGER.info("combat: {}", cTargets.size());
+            LOGGER.info("combat center: {}", cTargets.get(0));
+            LOGGER.info("combat team: {}", combMyAnts.get(cTargets.get(0)));
+            LOGGER.info("combat opp: {}", combOppAnts.get(cTargets.get(0)));
+        }
+
+        cTargets.parallelStream().forEachOrdered(t -> {
+            Set<XYTile> ma = combMyAnts.get(t);
+            Set<XYTile> oa = combOppAnts.get(t);
+
+            if (!oa.isEmpty()) {
+                Minimax.minimax(ma, oa)
+                        .parallelStream().forEach(mv -> op.apply(mv, move));
+            }
+        });
+    }
+
+    private static XYTile findCenter(Collection<XYTile> tiles) {
+        if (tiles.isEmpty()) {
+            return null;
+        } else if (tiles.size() == 1) {
+            XYTile center = tiles.iterator().next();
+            LOGGER.info("calculated center: {}", center);
+            return center;
+        } else {
+            XYTile tile0 = tiles.iterator().next();
+            int x0 = tile0.getX();
+            int y0 = tile0.getY();
+            int xc = tiles.parallelStream().mapToInt(t -> Utils.dnc(t.getX(), x0, XYTile.getXt())).sum() / tiles.size();
+            int yc = tiles.parallelStream().mapToInt(t -> Utils.dnc(t.getY(), y0, XYTile.getYt())).sum() / tiles.size();
+            XYTile center = XYTile.getTile(Utils.nc(xc, XYTile.getXt()), Utils.nc(yc, XYTile.getYt()));
+            LOGGER.info("calculated center: {}", center);
+            return center;
+        }
     }
 }

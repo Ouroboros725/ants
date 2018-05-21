@@ -82,6 +82,7 @@ public class Turn implements Game {
                 Tile ht = Tile.getTile(46, 46);
                 if (!oppHills.contains(ht)) {
                     oppHills.add(ht);
+                    LOGGER.info("disclose hill");
                 }
             }
 

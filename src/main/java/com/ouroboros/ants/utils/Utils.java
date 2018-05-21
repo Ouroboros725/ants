@@ -40,6 +40,18 @@ public class Utils {
         }
     }
 
+    public static int dnc(int x, int x0, int xt) {
+        int d = x - x0;
+        int hxt = xt /2;
+        if (d > hxt) {
+            return x - xt;
+        } else if (d < hxt) {
+            return x + xt;
+        } else {
+            return xt;
+        }
+    }
+
     public static <T> T getRandomElement(List<T> list) {
         if (list == null || list.isEmpty()) {
             return null;
