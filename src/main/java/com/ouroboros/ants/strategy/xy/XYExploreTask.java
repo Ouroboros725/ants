@@ -31,14 +31,14 @@ public class XYExploreTask {
     }
 
     void plan() {
-        LOGGER.info("explore ant: {}", ant);
-        LOGGER.info("explore goal: {}", goal);
+//        LOGGER.info("explore ant: {}", ant);
+//        LOGGER.info("explore goal: {}", goal);
         Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>());
         searched.add(goal);
         Map<XYTileMv, XYTileMv> start = new HashMap<>();
         goal.getNbDir().parallelStream().forEach(t -> start.put(t, null));
         TreeSearch.breadthFirstLink(start, ant, t -> searched.add(t), steps);
-        LOGGER.info("explore links: {}", steps);
+//        LOGGER.info("explore links: {}", steps);
     }
 
     XYTileMv getMove() {

@@ -35,7 +35,7 @@ public class XYAttackStrategy {
     private static final int HILL_RAID_DIST = 10;
     private static final int EXPLORE_DIST = 10;
     private static final int ENEMY_DIST = 5;
-    private static final int COMBAT_DIST = 7;
+    private static final int COMBAT_DIST = 5;
 
     static void calcOppInfArea(List<Tile> oppAnts) {
         int dist = ATTACK_DIST;
@@ -251,6 +251,11 @@ public class XYAttackStrategy {
 
         Set<XYTile> dupAnts = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap());
         toFight.stream().forEachOrdered(tile -> {
+            if (myAnts.get(tile).isEmpty()) {
+                dupAnts.add(tile);
+                return;
+            }
+
             if (!dupAnts.contains(tile)) {
                 enemyAnts.get(tile).parallelStream().filter(t -> !t.equals(tile) && toFight.contains(t))
                         .forEach(t -> {
@@ -269,7 +274,7 @@ public class XYAttackStrategy {
             LOGGER.info("enemies to hunt opp: {}", enemyAnts.get(toFight.get(0)));
         }
 
-        List<XYTile> cTargets = new ArrayList<>(toFight.size());
+        Set<XYTile> cTargets = Collections.newSetFromMap(new ConcurrentHashMap<>(toFight.size()));
         toFight.parallelStream().forEachOrdered(t -> {
             XYTile ct = findCenter(myAnts.get(t));
             if (ct != null) {
@@ -289,14 +294,29 @@ public class XYAttackStrategy {
 
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
-                        return searched.add(t);
+                        boolean se = searched.add(t);
+                        if (!se) {
+                            LOGGER.info("eliminated from combat 0: {}", t);
+                            LOGGER.info("eliminated from combat 0 details: {}", searched);
+                        }
+                        return se;
                     },
                     l -> l < cDist,
                     (t, l) -> {
-                        if (t.getStatus().isMyAnt() && !t.getStatus().isMoved() && included.add(t)) {
-                            combMyAnts.get(tile).add(t);
+                        if (t.getStatus().isMyAnt()) {
+                            if (!t.getStatus().isMoved()) {
+                                if (included.add(t)) {
+                                    combMyAnts.get(tile).add(t);
+                                } else {
+                                    LOGGER.info("eliminated from combat: {}", t);
+                                }
+                            } else {
+                                LOGGER.info("eliminated from combat 1: {}", t);
+                            }
                         } else if (t.getStatus().isOppAnt()) {
                             combOppAnts.get(tile).add(t);
+                        } else {
+                            LOGGER.info("eliminated from combat 2: {}", t);
                         }
                     },
                     0);
@@ -304,16 +324,21 @@ public class XYAttackStrategy {
 
         if (!cTargets.isEmpty()) {
             LOGGER.info("combat: {}", cTargets.size());
-            LOGGER.info("combat center: {}", cTargets.get(0));
-            LOGGER.info("combat team: {}", combMyAnts.get(cTargets.get(0)));
-            LOGGER.info("combat opp: {}", combOppAnts.get(cTargets.get(0)));
+            XYTile cf = cTargets.iterator().next();
+            LOGGER.info("combat center: {}", cf);
+            LOGGER.info("combat team: {}", combMyAnts.get(cf));
+            LOGGER.info("combat opp: {}", combOppAnts.get(cf));
         }
 
         cTargets.parallelStream().forEachOrdered(t -> {
             Set<XYTile> ma = combMyAnts.get(t);
             Set<XYTile> oa = combOppAnts.get(t);
 
-            if (!oa.isEmpty()) {
+            if (ma.isEmpty()) {
+                LOGGER.info("invalid combat: {}", t);
+            }
+
+            if (!ma.isEmpty() && !oa.isEmpty()) {
                 Minimax.minimax(ma, oa)
                         .parallelStream().forEach(mv -> op.apply(mv, move));
             }
