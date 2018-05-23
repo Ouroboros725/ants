@@ -36,6 +36,7 @@ public class XYAttackStrategy {
     private static final int EXPLORE_DIST = 10;
     private static final int ENEMY_DIST = 5;
     private static final int COMBAT_DIST = 5;
+    private static final int ALLY_DIST = 10;
 
     static void calcOppInfArea(List<Tile> oppAnts) {
         int dist = ATTACK_DIST;
@@ -333,7 +334,11 @@ public class XYAttackStrategy {
             LOGGER.info("combat opp: {}", combOppAnts.get(cf));
         }
 
-        cTargets.parallelStream().forEachOrdered(t -> {
+        List<XYTile> fTargets = cTargets.stream().filter(t -> {
+            return !combMyAnts.get(t).isEmpty() && !combOppAnts.get(t).isEmpty();
+        }).collect(Collectors.toList());
+
+        fTargets.parallelStream().forEachOrdered(t -> {
             Set<XYTile> ma = combMyAnts.get(t);
             Set<XYTile> oa = combOppAnts.get(t);
 
@@ -344,6 +349,39 @@ public class XYAttackStrategy {
             if (!ma.isEmpty() && !oa.isEmpty()) {
                 Minimax.minimax(ma, oa)
                         .parallelStream().forEach(mv -> op.apply(mv, move));
+            }
+        });
+
+        int aDist = ALLY_DIST;
+
+        fTargets.parallelStream().forEach(tile -> {
+            int diff = combOppAnts.get(tile).size() - combMyAnts.get(tile).size();
+
+            if (diff > 0) {
+                Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+                searched.put(tile, -1);
+                TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
+                    (t, l) -> {
+                        Integer lv = searched.get(t.getTile());
+                        if (lv == null || l < lv) {
+                            searched.put(t.getTile(), l);
+                            return true;
+                        }
+
+                        return false;
+                    },
+                    (l, c) -> l < aDist && c.get() > 0,
+                    (t, c) -> {
+                        if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
+                            if (op.apply(t, move)) {
+                                LOGGER.info("combat reinforcement: {} {}", tile, t);
+                                c.getAndDecrement();
+                            }
+                        }
+                    },
+                    new AtomicInteger(diff),
+                    0
+                );
             }
         });
     }

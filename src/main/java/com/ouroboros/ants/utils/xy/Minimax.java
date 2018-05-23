@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -22,6 +23,7 @@ public class Minimax {
     private static final Logger LOGGER = LoggerFactory.getLogger(Minimax.class);
 
     private static final int SIEGE_DIST2 = 5;
+    private static final int BRANCH_THRESHOLD = 1000;
 
     private static class XYMove {
         XYTile origin;
@@ -84,14 +86,14 @@ public class Minimax {
 
         Set<XYTile> myWarZone = underSiegeArea(oppAntsList);
 
-        List<MMMove> branches = max(myAntsList, oppAntsList, null, myWarZone);
+        List<MMMove> branches = max(myAntsList, oppAntsList, null, myWarZone, new AtomicInteger(0));
 
         LOGGER.info("minimax branches: {} {} {}", branches.size(), myAnts.size(), oppAnts.size());
 
         branches.parallelStream().forEach(b -> evaluation(b));
 
         List<XYTileMv> moves = new ArrayList<>(myAnts.size());
-//        branches.parallelStream().max((b1, b2) -> {return b1.value - b2.value;}).ifPresent(b -> {
+//        branches.parallelStream().filter(b -> b.value > 0).max((b1, b2) -> {return b1.value - b2.value;}).ifPresent(b -> {
 //            convertMoves(b, moves);
 //        });
 
@@ -114,30 +116,39 @@ public class Minimax {
         }
     }
 
-    private static List<MMMove> max(List<XYTile> myAnts, List<XYTile> oppAnts, MMMove myMove, Set<XYTile> myWarZone) {
+    private static List<MMMove> max(List<XYTile> myAnts, List<XYTile> oppAnts, MMMove myMove, Set<XYTile> myWarZone, AtomicInteger count) {
         if (myAnts.isEmpty()) {
             List<XYTile> destAnts = new ArrayList<>();
             getDestAnts(myMove, destAnts);
             Set<XYTile> oppWarZone = underSiegeArea(destAnts);
-            return min(oppAnts, myMove, oppWarZone);
+            return min(oppAnts, myMove, oppWarZone, count);
         } else {
-            XYTile a = myAnts.get(0);
-            List<XYTile> nma = new ArrayList<>(myAnts.subList(1, myAnts.size()));
-            return generateMoves(a, myMove, true, myWarZone).parallelStream().flatMap(m -> {
-                return max(nma, oppAnts, m, myWarZone).stream();
-            }).collect(Collectors.toList());
+            if (count.get() < BRANCH_THRESHOLD) {
+                XYTile a = myAnts.get(0);
+                List<XYTile> nma = new ArrayList<>(myAnts.subList(1, myAnts.size()));
+                return generateMoves(a, myMove, true, myWarZone).parallelStream().flatMap(m -> {
+                    return max(nma, oppAnts, m, myWarZone, count).stream();
+                }).collect(Collectors.toList());
+            } else {
+                return Collections.emptyList();
+            }
         }
     }
 
-    private static List<MMMove> min(List<XYTile> oppAnts, MMMove myMove, Set<XYTile> oppWarZone) {
+    private static List<MMMove> min(List<XYTile> oppAnts, MMMove myMove, Set<XYTile> oppWarZone, AtomicInteger count) {
         if (oppAnts.isEmpty()) {
+            count.incrementAndGet();
             return Lists.newArrayList(myMove);
         } else {
-            XYTile a = oppAnts.get(0);
-            List<XYTile> noa = new ArrayList<>(oppAnts.subList(1, oppAnts.size()));
-            return generateMoves(a, myMove, false, oppWarZone).parallelStream().flatMap(m -> {
-                return min(noa, m, oppWarZone).stream();
-            }).collect(Collectors.toList());
+            if (count.get() < BRANCH_THRESHOLD) {
+                XYTile a = oppAnts.get(0);
+                List<XYTile> noa = new ArrayList<>(oppAnts.subList(1, oppAnts.size()));
+                return generateMoves(a, myMove, false, oppWarZone).parallelStream().flatMap(m -> {
+                    return min(noa, m, oppWarZone, count).stream();
+                }).collect(Collectors.toList());
+            } else {
+                return Collections.emptyList();
+            }
         }
     }
 
@@ -205,7 +216,7 @@ public class Minimax {
         if (!currentInZone) {
             boolean inWarZone = warZone.contains(nbt.getTile());
             if (!inWarZone) {
-                LOGGER.info("combat filter not in war zone: {}", nbt.getTile());
+                LOGGER.info("combat filter not in max war zone: {}", nbt.getTile());
             }
             return inWarZone;
         }
@@ -217,7 +228,7 @@ public class Minimax {
         if (!currentInZone) {
             boolean inWarZone = warZone.contains(nbt.getTile());
             if (!inWarZone) {
-                LOGGER.info("combat filter not in war zone: {}", nbt.getTile());
+                LOGGER.info("combat filter not in min war zone: {}", nbt.getTile());
             }
             return inWarZone;
         }
@@ -226,6 +237,10 @@ public class Minimax {
     }
 
     private static int evaluation(MMMove myMove) {
+        List<XYTile> dests = new ArrayList<>();
+        getDestAnts(myMove, dests);
+
+
         return 0;
     }
 }
