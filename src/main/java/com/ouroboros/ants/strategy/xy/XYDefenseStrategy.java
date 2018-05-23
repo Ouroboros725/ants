@@ -70,13 +70,15 @@ public class XYDefenseStrategy {
 //            LOGGER.info("miss food: {}", tile );
             int c = tile.getFood().getCount();
             final int cnt = c < 25 ? c : 24;
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(13));
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(13);
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
-                        if (!searched.contains(t)) {
-                            searched.add(t);
+                        Integer lv = searched.get(t);
+                        if (lv == null || l < lv) {
+                            searched.put(t, l);
                             return true;
                         }
+
                         return false;
                     },
                     l -> l < dist,
@@ -89,13 +91,15 @@ public class XYDefenseStrategy {
 
         food.parallelStream().map(XYTile::getTile).forEach(tile -> {
             int cnt = tile.getFood().getCount();
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(13));
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(13);
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
-                        if (!searched.contains(t)) {
-                            searched.add(t);
+                        Integer lv = searched.get(t);
+                        if (lv == null || l < lv) {
+                            searched.put(t, l);
                             return true;
                         }
+
                         return false;
                     },
                     l -> l < dist,
@@ -149,15 +153,16 @@ public class XYDefenseStrategy {
         LOGGER.info("food: {}", toFood.size());
 
         toFood.parallelStream().forEach(h -> {
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
-            searched.add(h);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            searched.put(h, -1);
             TreeSearch.breadthFirstMultiSearch(h.getNbDir(),
                     (t, l) -> {
-                        if (!searched.contains(t.getTile())) {
-                            searched.add(t.getTile());
-//                            LOGGER.info("searched: " + !t.getTile().getStatus().isTaboo());
-                            return !t.getTile().getStatus().isTaboo();
+                        Integer lv = searched.get(t.getTile());
+                        if (lv == null || l < lv) {
+                            searched.put(t.getTile(), l);
+                            return true;
                         }
+
                         return false;
                     },
                     (l, c) -> l < fDist && c.get() > 0,
@@ -188,11 +193,17 @@ public class XYDefenseStrategy {
 
             Map<XYTile, XYTile> oppAnts = new ConcurrentHashMap<>();
             hills.parallelStream().map(XYTile::getTile).forEach(tile -> {
-                Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
+                Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
 
                 TreeSearch.depthFirstFill(tile,
                         (t, l) -> {
-                            return searched.add(t);
+                            Integer lv = searched.get(t);
+                            if (lv == null || l < lv) {
+                                searched.put(t, l);
+                                return true;
+                            }
+
+                            return false;
                         },
                         l -> l < dist,
                         (t, l) -> {
@@ -208,23 +219,39 @@ public class XYDefenseStrategy {
 
                 oppAnts.entrySet().parallelStream().forEach(entry -> {
                     List<XYTileMv> steps = new ArrayList<>();
-                    Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>());
-                    searched.add(entry.getKey());
+                    Map<XYTile, Integer> searched = new ConcurrentHashMap<>();
+                    searched.put(entry.getKey(), 0);
                     Map<XYTileMv, XYTileMv> start = new HashMap<>();
                     entry.getKey().getNbDir().parallelStream().forEach(t -> start.put(t, null));
-                    TreeSearch.breadthFirstLink(start, entry.getValue(), searched::add, steps);
+                    TreeSearch.breadthFirstLink(start, entry.getValue(),
+                            (t, l) -> {
+                                Integer lv = searched.get(t);
+                                if (lv == null || l < lv) {
+                                    searched.put(t, l);
+                                    return true;
+                                }
+
+                                return false;
+                            },
+                            steps, 1);
                     if (!steps.isEmpty()) {
                         kSpot.put(steps.get(steps.size() / 2).getTile(), steps.size());
                     }
                 });
 
                 kSpot.entrySet().parallelStream().sorted(Map.Entry.comparingByValue()).map(Map.Entry::getKey).forEachOrdered(tile -> {
-                    Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>());
-                    searched.add(tile);
+                    Map<XYTile, Integer> searched = new ConcurrentHashMap<>();
+                    searched.put(tile, -1);
 
                     TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
                             (t, l) -> {
-                                return searched.add(t.getTile());
+                                Integer lv = searched.get(t.getTile());
+                                if (lv == null || l < lv) {
+                                    searched.put(t.getTile(), l);
+                                    return true;
+                                }
+
+                                return false;
                             },
                             (l, c) -> l < dist && c.get() > 0,
                             (t, c) -> {

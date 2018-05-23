@@ -63,14 +63,16 @@ public class XYAttackStrategy {
 
             hills.parallelStream().map(XYTile::getTile)
                     .forEach(h -> {
-                        Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
-                        searched.add(h);
+                        Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+                        searched.put(h, -1);
                         TreeSearch.breadthFirstMultiSearch(h.getNbDir(),
                                 (t, l) -> {
-                                    if (!searched.contains(t.getTile())) {
-                                        searched.add(t.getTile());
-                                        return !t.getTile().getStatus().isTaboo();
+                                    Integer lv = searched.get(t.getTile());
+                                    if (lv == null || l < lv) {
+                                        searched.put(t.getTile(), l);
+                                        return true;
                                     }
+
                                     return false;
                                 },
                                 (l, c) -> l < dist && c.get() > 0,
@@ -109,13 +111,15 @@ public class XYAttackStrategy {
 
         Set<XYTile> updated = Collections.newSetFromMap(new ConcurrentHashMap<>());
         myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
-                        if (!searched.contains(t)) {
-                            searched.add(t);
+                        Integer lv = searched.get(t);
+                        if (lv == null || l < lv) {
+                            searched.put(t, l);
                             return true;
                         }
+
                         return false;
                     },
                     l -> l < dist,
@@ -139,14 +143,16 @@ public class XYAttackStrategy {
 
             List<XYTileMvAggWt> wList = tile.getNbDir().stream().map(XYTileMvAggWt::new).collect(Collectors.toList());
 
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(361));
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
             wList.parallelStream().filter(nbt -> !nbt.getMove().getTile().getStatus().isTaboo() && !nbt.getMove().getTile().getStatus().isMyAnt())
                     .forEach(nbt -> TreeSearch.depthFirstFill(nbt.getMove().getTile(),
                             (t, l) -> {
-                                if (!searched.contains(t)) {
-                                    searched.add(t);
+                                Integer lv = searched.get(t);
+                                if (lv == null || l < lv) {
+                                    searched.put(t, l);
                                     return true;
                                 }
+
                                 return false;
                             },
                             l -> l < dist,
@@ -223,13 +229,19 @@ public class XYAttackStrategy {
         Map<XYTile, Set<XYTile>> enemyAnts = new ConcurrentHashMap<>();
 
         oppAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(41));
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(41);
             myAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
             enemyAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
 
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
-                        return searched.add(t);
+                        Integer lv = searched.get(t);
+                        if (lv == null || l < lv) {
+                            searched.put(t, l);
+                            return true;
+                        }
+
+                        return false;
                     },
                     l -> l < dist,
                     (t, l) -> {
@@ -288,18 +300,22 @@ public class XYAttackStrategy {
         Map<XYTile, Set<XYTile>> combMyAnts = new ConcurrentHashMap<>();
         Map<XYTile, Set<XYTile>> combOppAnts = new ConcurrentHashMap<>();
         cTargets.parallelStream().forEachOrdered(tile -> {
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(85));
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(85);
             combMyAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
             combOppAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
 
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
-                        boolean se = searched.add(t);
-                        if (!se) {
+                        Integer lv = searched.get(t);
+                        if (lv == null || l < lv) {
+                            searched.put(t, l);
+                            return true;
+                        } else {
                             LOGGER.info("eliminated from combat 0: {}", t);
-                            LOGGER.info("eliminated from combat 0 details: {}", searched);
+//                            LOGGER.info("eliminated from combat 0 details: {}", searched);
                         }
-                        return se;
+
+                        return false;
                     },
                     l -> l < cDist,
                     (t, l) -> {

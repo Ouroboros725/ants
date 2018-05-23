@@ -50,9 +50,9 @@ public class TreeSearch {
 
     }
 
-    public static XYTileMv breadthFirstLink(Map<XYTileMv, XYTileMv> start, XYTile goal, Predicate<XYTile> visit, List<XYTileMv> links) {
+    public static XYTileMv breadthFirstLink(Map<XYTileMv, XYTileMv> start, XYTile goal, BiPredicate<XYTile, Integer> visit, List<XYTileMv> links, int level) {
         List<Map.Entry<XYTileMv, XYTileMv>> targets = start.entrySet().parallelStream()
-                .filter(entry -> visit.test(entry.getKey().getTile())).collect(Collectors.toList());
+                .filter(entry -> visit.test(entry.getKey().getTile(), level)).collect(Collectors.toList());
 
         AtomicBoolean find = new AtomicBoolean(false);
         targets.parallelStream().filter(entry -> entry.getKey().getTile().equals(goal)).findAny().ifPresent(entry -> {
@@ -69,7 +69,7 @@ public class TreeSearch {
                 mv.getTile().getNbDir().parallelStream().forEach(nbt -> ns.put(nbt, mv));
             });
 
-            XYTileMv nx = breadthFirstLink(ns, goal, visit, links);
+            XYTileMv nx = breadthFirstLink(ns, goal, visit, links, level + 1);
             links.add(nx);
 
             return start.get(nx);

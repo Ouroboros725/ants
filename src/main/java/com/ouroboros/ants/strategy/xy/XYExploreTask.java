@@ -33,11 +33,20 @@ public class XYExploreTask {
     void plan() {
 //        LOGGER.info("explore ant: {}", ant);
 //        LOGGER.info("explore goal: {}", goal);
-        Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        searched.add(goal);
+        Map<XYTile, Integer> searched = new ConcurrentHashMap<>();
+        searched.put(goal, 0);
         Map<XYTileMv, XYTileMv> start = new HashMap<>();
         goal.getNbDir().parallelStream().forEach(t -> start.put(t, null));
-        TreeSearch.breadthFirstLink(start, ant, t -> searched.add(t), steps);
+        TreeSearch.breadthFirstLink(start, ant,
+                (t, l) -> {
+                    Integer lv = searched.get(t);
+                    if (lv == null || l < lv) {
+                        searched.put(t, l);
+                        return true;
+                    }
+
+                    return false;
+                }, steps, 1);
 //        LOGGER.info("explore links: {}", steps);
     }
 

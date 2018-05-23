@@ -168,13 +168,18 @@ public class Minimax {
             tile.getNbDir().stream().map(nbt -> nbt.getTile()).forEach(t -> {centers.add(t);});
             centers.add(tile);
 
-            Set<XYTile> searched = Collections.newSetFromMap(new ConcurrentHashMap<>(25));
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(25);
 
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
-                        return searched.add(t)
-                                && centers.parallelStream().anyMatch(c ->
-                                Utils.distEucl2(c.getX(), c.getY(), t.getX(), t.getY(), XYTile.getXt(), XYTile.getYt()) < dist);
+                        Integer lv = searched.get(t);
+                        if (lv == null || l < lv) {
+                            searched.put(t, l);
+                            return centers.parallelStream().anyMatch(c ->
+                                    Utils.distEucl2(c.getX(), c.getY(), t.getX(), t.getY(), XYTile.getXt(), XYTile.getYt()) < dist);
+                        }
+
+                        return false;
                     },
                     l -> true,
                     (t, l) -> {
