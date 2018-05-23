@@ -310,29 +310,16 @@ public class XYAttackStrategy {
                         if (lv == null || l < lv) {
                             searched.put(t, l);
                             return true;
-                        } else {
-                            LOGGER.info("eliminated from combat 0: {}", t);
-//                            LOGGER.info("eliminated from combat 0 details: {}", searched);
                         }
 
                         return false;
                     },
                     l -> l < cDist,
                     (t, l) -> {
-                        if (t.getStatus().isMyAnt()) {
-                            if (!t.getStatus().isMoved()) {
-                                if (included.add(t)) {
-                                    combMyAnts.get(tile).add(t);
-                                } else {
-                                    LOGGER.info("eliminated from combat: {}", t);
-                                }
-                            } else {
-                                LOGGER.info("eliminated from combat 1: {}", t);
-                            }
+                        if (t.getStatus().isMyAnt() && !t.getStatus().isMoved() && included.add(t)) {
+                            combMyAnts.get(tile).add(t);
                         } else if (t.getStatus().isOppAnt()) {
                             combOppAnts.get(tile).add(t);
-                        } else {
-                            LOGGER.info("eliminated from combat 2: {}", t);
                         }
                     },
                     0);
