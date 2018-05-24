@@ -32,18 +32,22 @@ public class XYMainStrategy extends AbstractStrategy {
     private static final BiFunction<XYTileMv, Consumer<Move>, Boolean> MOVE = (m, o) -> {
         MOVE_LOCK.lock();
         try {
-            XYTile nt = XYTile.getTile(Direction.getOppoDir(m.getDir()).getNeighbour(m.getTile().getX(), m.getTile().getY(), XYTile.getXt(), XYTile.getYt()));
+            if (m.getDir() != null) {
+                XYTile nt = XYTile.getTile(Direction.getOppoDir(m.getDir()).getNeighbour(m.getTile().getX(), m.getTile().getY(), XYTile.getXt(), XYTile.getYt()));
 
-            if (!nt.getStatus().isMyAnt()) {
-                o.accept(new Move(m.getTile().getX(), m.getTile().getY(), Direction.getOppoDir(m.getDir()).getChar()));
+                if (!nt.getStatus().isMyAnt()) {
+                    o.accept(new Move(m.getTile().getX(), m.getTile().getY(), Direction.getOppoDir(m.getDir()).getChar()));
 
-                m.getTile().getStatus().setMyAnt(false);
+                    m.getTile().getStatus().setMyAnt(false);
+                    m.getTile().getStatus().setMoved(true);
+
+                    nt.getStatus().setMyAnt(true);
+                    nt.getStatus().setMoved(true);
+
+                    return true;
+                }
+            } else {
                 m.getTile().getStatus().setMoved(true);
-
-                nt.getStatus().setMyAnt(true);
-                nt.getStatus().setMoved(true);
-
-                return true;
             }
         } finally {
             MOVE_LOCK.unlock();

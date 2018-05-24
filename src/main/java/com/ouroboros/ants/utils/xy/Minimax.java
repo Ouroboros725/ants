@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -23,7 +25,7 @@ public class Minimax {
     private static final Logger LOGGER = LoggerFactory.getLogger(Minimax.class);
 
     private static final int SIEGE_DIST2 = 5;
-    private static final int BRANCH_THRESHOLD = 1000;
+    private static final int BRANCH_THRESHOLD = 3000;
 
     private static class XYMove {
         XYTile origin;
@@ -47,6 +49,14 @@ public class Minimax {
         public int hashCode() {
             return Objects.hashCode(origin, destionation);
         }
+
+        @Override
+        public String toString() {
+            return "XYMove{" +
+                    "destionation=" + destionation +
+                    ", origin=" + origin +
+                    '}';
+        }
     }
 
     private static class MMMove {
@@ -54,9 +64,11 @@ public class Minimax {
         Direction direction;
         MMMove lastMove;
         boolean myMove;
-        int value;
         Set<XYTile> destinations;
         Set<XYMove> moves;
+        int myKilled;
+        int oppKilled;
+        int muDist;
 
         MMMove(XYMove xyMove, Direction direction, MMMove lastMove, boolean myMove) {
             this.xyMove = xyMove;
@@ -76,6 +88,15 @@ public class Minimax {
             }
             this.moves.add(this.xyMove);
         }
+
+        @Override
+        public String toString() {
+            return "MMMove{" +
+                    "myMove=" + myMove +
+                    ", xyMove=" + xyMove +
+                    ", lastMove=" + lastMove +
+                    '}';
+        }
     }
 
     public static List<XYTileMv> minimax(Set<XYTile> myAnts, Set<XYTile> oppAnts) {
@@ -86,50 +107,73 @@ public class Minimax {
 
         Set<XYTile> myWarZone = underSiegeArea(oppAntsList);
 
-        List<MMMove> branches = max(myAntsList, oppAntsList, null, myWarZone, new AtomicInteger(0));
+        ConcurrentMap<MMMove, List<MMMove>> map = new ConcurrentHashMap<>();
+
+        List<MMMove> branches = max(myAntsList, oppAntsList, null, myWarZone, map, new AtomicInteger(0));
 
         LOGGER.info("minimax branches: {} {} {}", branches.size(), myAnts.size(), oppAnts.size());
+
+        boolean aggressive = (myAnts.size() - oppAnts.size()) > 0;
 
         branches.parallelStream().forEach(b -> evaluation(b));
 
         List<XYTileMv> moves = new ArrayList<>(myAnts.size());
-//        branches.parallelStream().filter(b -> b.value > 0).max((b1, b2) -> {return b1.value - b2.value;}).ifPresent(b -> {
-//            convertMoves(b, moves);
-//        });
+
+        AtomicBoolean optimal = new AtomicBoolean(false);
+
+        map.entrySet().parallelStream().filter(entry -> {
+            return entry.getValue().parallelStream().allMatch(mv -> mv.oppKilled > mv.myKilled);
+        }).max((b1, b2) -> {
+            return value(b1.getValue()) - value(b2.getValue());
+        }).ifPresent(entry -> {
+            LOGGER.info("combat optimal move: {}", entry.getValue());
+            convertMoves(entry.getKey(), moves);
+            optimal.set(true);
+        });
+
+        LOGGER.info("combat formation: {}, {}, {}", moves, myAntsList, oppAntsList);
 
         return moves;
     }
 
     private static void convertMoves(MMMove move, List<XYTileMv> moves) {
-        if (move.myMove && move.direction != null) {
-            moves.add(new XYTileMv(move.xyMove.origin, Direction.getOppoDir(move.direction)));
+        if (move.myMove) {
+            moves.add(new XYTileMv(move.xyMove.origin, move.direction != null ? Direction.getOppoDir(move.direction) : null));
         }
         if (move.lastMove != null) {
             convertMoves(move.lastMove, moves);
         }
     }
 
-    private static void getDestAnts(MMMove move, List<XYTile> tiles) {
-        tiles.add(move.xyMove.destionation);
+    private static void getDestAnts(MMMove move, List<XYTile> tiles, boolean myMove) {
+        if (!(myMove ^ move.myMove)) {
+            tiles.add(move.xyMove.destionation);
+        }
+
         if (move.lastMove != null) {
-            getDestAnts(move.lastMove, tiles);
+            getDestAnts(move.lastMove, tiles, myMove);
         }
     }
 
-    private static List<MMMove> max(List<XYTile> myAnts, List<XYTile> oppAnts, MMMove myMove, Set<XYTile> myWarZone, AtomicInteger count) {
+    private static List<MMMove> max(List<XYTile> myAnts, List<XYTile> oppAnts, MMMove myMove, Set<XYTile> myWarZone,
+                                                       ConcurrentMap<MMMove, List<MMMove>> map, AtomicInteger count) {
         if (myAnts.isEmpty()) {
             List<XYTile> destAnts = new ArrayList<>();
-            getDestAnts(myMove, destAnts);
+            getDestAnts(myMove, destAnts, true);
             Set<XYTile> oppWarZone = underSiegeArea(destAnts);
-            return min(oppAnts, myMove, oppWarZone, count);
+            List<MMMove> mm = min(oppAnts, myMove, oppWarZone, count);
+            map.put(myMove, mm);
+            return mm;
+
         } else {
             if (count.get() < BRANCH_THRESHOLD) {
                 XYTile a = myAnts.get(0);
                 List<XYTile> nma = new ArrayList<>(myAnts.subList(1, myAnts.size()));
                 return generateMoves(a, myMove, true, myWarZone).parallelStream().flatMap(m -> {
-                    return max(nma, oppAnts, m, myWarZone, count).stream();
+                    return max(nma, oppAnts, m, myWarZone, map, count).stream();
                 }).collect(Collectors.toList());
             } else {
+                LOGGER.info("combat branches overwhelm max");
                 return Collections.emptyList();
             }
         }
@@ -147,6 +191,7 @@ public class Minimax {
                     return min(noa, m, oppWarZone, count).stream();
                 }).collect(Collectors.toList());
             } else {
+                LOGGER.info("combat branches overwhelm min");
                 return Collections.emptyList();
             }
         }
@@ -155,9 +200,10 @@ public class Minimax {
     private static List<MMMove> generateMoves(XYTile tile, MMMove lastMove, boolean max, Set<XYTile> warZone) {
         List<MMMove> moves = new ArrayList<>(tile.getNbDir().size() + 1);
 
-        if (lastMove == null || !lastMove.destinations.contains(tile)) {
+        boolean notOcc = true;
+        if (lastMove == null || (notOcc = !lastMove.destinations.contains(tile))) {
             XYMove xyMove = new XYMove(tile, tile);
-            MMMove move = new MMMove(xyMove, null, lastMove, true);
+            MMMove move = new MMMove(xyMove, null, lastMove, max);
             moves.add(move);
         }
 
@@ -175,6 +221,22 @@ public class Minimax {
             MMMove move = new MMMove(xyMove, nbt.getDir(), lastMove, max);
             moves.add(move);
         });
+
+        if (moves.isEmpty() && !notOcc) {
+            tile.getNbDir().parallelStream().filter(nbt -> {
+                boolean s1 = lastMove == null || (!lastMove.destinations.contains(nbt.getTile()) &&
+                        !lastMove.moves.contains(new XYMove(nbt.getTile(), tile)));
+                return s1;
+            }).findFirst().ifPresent(nbt -> {
+                XYMove xyMove = new XYMove(tile, nbt.getTile());
+                MMMove move = new MMMove(xyMove, nbt.getDir(), lastMove, max);
+                moves.add(move);
+            });
+        }
+
+        if (moves.isEmpty()) {
+            LOGGER.info("combat no moves: {}", tile);
+        }
 
         return moves;
     }
@@ -197,7 +259,7 @@ public class Minimax {
                         if (lv == null || l < lv) {
                             searched.put(t, l);
                             return centers.parallelStream().anyMatch(c ->
-                                    Utils.distEucl2(c.getX(), c.getY(), t.getX(), t.getY(), XYTile.getXt(), XYTile.getYt()) < dist);
+                                    Utils.distEucl2(c.getX(), c.getY(), t.getX(), t.getY(), XYTile.getXt(), XYTile.getYt()) <= dist);
                         }
 
                         return false;
@@ -236,11 +298,61 @@ public class Minimax {
         return true;
     }
 
-    private static int evaluation(MMMove myMove) {
-        List<XYTile> dests = new ArrayList<>();
-        getDestAnts(myMove, dests);
+    private static void evaluation(MMMove myMove) {
+        List<XYTile> myAnts = new ArrayList<>();
+        getDestAnts(myMove, myAnts, true);
 
+        List<XYTile> oppAnts = new ArrayList<>();
+        getDestAnts(myMove, oppAnts, false);
 
-        return 0;
+        if (oppAnts.isEmpty()) {
+            LOGGER.info("combat branch invalid: {}", myMove);
+            return;
+        }
+
+        AtomicInteger dist = new AtomicInteger();
+
+        ConcurrentMap<XYTile, Set<XYTile>> enemyMap = new ConcurrentHashMap<>(myAnts.size() + oppAnts.size());
+        myAnts.parallelStream().forEach(mt -> {
+            AtomicInteger md = new AtomicInteger(Integer.MAX_VALUE);
+
+            enemyMap.put(mt, oppAnts.parallelStream().filter(ot -> {
+                int d = Utils.distEucl2(mt.getX(), mt.getY(), ot.getX(), ot.getY(), XYTile.getXt(), XYTile.getYt());
+                md.updateAndGet(value -> value > d ? d : value);
+                return d <= SIEGE_DIST2;
+            }).collect(Collectors.toSet()));
+
+            dist.addAndGet(md.get());
+        });
+
+        oppAnts.parallelStream().forEach(ot -> {
+            enemyMap.put(ot, myAnts.parallelStream().filter(mt -> {
+                return enemyMap.get(mt).contains(ot);
+            }).collect(Collectors.toSet()));
+        });
+
+        AtomicInteger myKilled = new AtomicInteger(0);
+        myAnts.parallelStream().forEach(mt -> {
+            Set<XYTile> enemy = enemyMap.get(mt);
+            int me = enemy.size();
+            enemy.parallelStream().filter(ot -> enemyMap.get(ot).size() <= me).findAny().ifPresent(t -> myKilled.incrementAndGet());
+        });
+
+        AtomicInteger oppKilled = new AtomicInteger(0);
+        oppAnts.parallelStream().forEach(ot -> {
+            Set<XYTile> enemy = enemyMap.get(ot);
+            int oe = enemy.size();
+            enemy.parallelStream().filter(mt -> enemyMap.get(mt).size() <= oe).findAny().ifPresent(t -> oppKilled.incrementAndGet());
+        });
+
+        LOGGER.info("combat dist: {}", dist.get());
+
+        myMove.myKilled = myKilled.get();
+        myMove.oppKilled = oppKilled.get();
+        myMove.muDist = dist.get();
+    }
+
+    private static int value(List<MMMove> move) {
+        return move.oppKilled * 250 - move.myKilled * 200 -move.muDist;
     }
 }

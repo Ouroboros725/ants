@@ -36,7 +36,8 @@ public class XYAttackStrategy {
     private static final int EXPLORE_DIST = 10;
     private static final int ENEMY_DIST = 5;
     private static final int COMBAT_DIST = 5;
-    private static final int ALLY_DIST = 10;
+    private static final int ALLY_DIST = 12;
+    private static final int ANTI_DIST = 5;
 
     static void calcOppInfArea(List<Tile> oppAnts) {
         int dist = ATTACK_DIST;
@@ -299,11 +300,12 @@ public class XYAttackStrategy {
 
         Set<XYTile> included = Collections.newSetFromMap(new ConcurrentHashMap<>());
         Map<XYTile, Set<XYTile>> combMyAnts = new ConcurrentHashMap<>();
-        Map<XYTile, Set<XYTile>> combOppAnts = new ConcurrentHashMap<>();
+
         cTargets.parallelStream().forEachOrdered(tile -> {
             Map<XYTile, Integer> searched = new ConcurrentHashMap<>(85);
-            combMyAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
-            combOppAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
+
+            Set<XYTile> allies = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>());
+            combMyAnts.put(tile, allies);
 
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
@@ -318,12 +320,42 @@ public class XYAttackStrategy {
                     l -> l < cDist,
                     (t, l) -> {
                         if (t.getStatus().isMyAnt() && !t.getStatus().isMoved() && included.add(t)) {
-                            combMyAnts.get(tile).add(t);
-                        } else if (t.getStatus().isOppAnt()) {
-                            combOppAnts.get(tile).add(t);
+                            allies.add(t);
                         }
                     },
                     0);
+        });
+
+        Map<XYTile, Set<XYTile>> combOppAnts = new ConcurrentHashMap<>();
+
+        int eDist = ANTI_DIST;
+
+        cTargets.parallelStream().forEach(tile -> {
+            Set<XYTile> mcb = combMyAnts.get(tile);
+            Set<XYTile> myEnemies = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>());
+            combOppAnts.put(tile, myEnemies);
+
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(61);
+
+            mcb.parallelStream().forEach(at -> {
+                TreeSearch.depthFirstFill(at,
+                        (t, l) -> {
+                            Integer lv = searched.get(t);
+                            if (lv == null || l < lv) {
+                                searched.put(t, l);
+                                return true;
+                            }
+
+                            return false;
+                        },
+                        l -> l < eDist,
+                        (t, l) -> {
+                            if (t.getStatus().isOppAnt()) {
+                                myEnemies.add(t);
+                            }
+                        },
+                        0);
+            });
         });
 
         if (!cTargets.isEmpty()) {
