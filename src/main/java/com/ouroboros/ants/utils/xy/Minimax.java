@@ -25,7 +25,7 @@ public class Minimax {
     private static final Logger LOGGER = LoggerFactory.getLogger(Minimax.class);
 
     private static final int SIEGE_DIST2 = 5;
-    private static final int BRANCH_THRESHOLD = 3999;
+    private static final int BRANCH_THRESHOLD = 2999;
 
     private static class XYMove {
         XYTile origin;
