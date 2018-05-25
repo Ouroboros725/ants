@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -25,7 +25,7 @@ public class Minimax {
     private static final Logger LOGGER = LoggerFactory.getLogger(Minimax.class);
 
     private static final int SIEGE_DIST2 = 5;
-    private static final int BRANCH_THRESHOLD = 3000;
+    private static final int BRANCH_THRESHOLD = 3999;
 
     private static class XYMove {
         XYTile origin;
@@ -69,6 +69,7 @@ public class Minimax {
         int myKilled;
         int oppKilled;
         int muDist;
+        int killedDiff;
 
         MMMove(XYMove xyMove, Direction direction, MMMove lastMove, boolean myMove) {
             this.xyMove = xyMove;
@@ -99,7 +100,24 @@ public class Minimax {
         }
     }
 
-    public static List<XYTileMv> minimax(Set<XYTile> myAnts, Set<XYTile> oppAnts) {
+    private static class MMEva {
+        int killDiffMin;
+        int myKillMax;
+        int oppKillMin;
+        int distMax;
+
+        @Override
+        public String toString() {
+            return "MMEva{" +
+                    "distMax=" + distMax +
+                    ", killDiffMin=" + killDiffMin +
+                    ", myKillMax=" + myKillMax +
+                    ", oppKillMin=" + oppKillMin +
+                    '}';
+        }
+    }
+
+    public static List<XYTileMv> minimax(Set<XYTile> myAnts, Set<XYTile> oppAnts, boolean aggressive) {
         LOGGER.info("minimax: {}", myAnts);
 
         List<XYTile> myAntsList = new ArrayList<>(myAnts);
@@ -113,23 +131,9 @@ public class Minimax {
 
         LOGGER.info("minimax branches: {} {} {}", branches.size(), myAnts.size(), oppAnts.size());
 
-        boolean aggressive = (myAnts.size() - oppAnts.size()) > 0;
+        branches.parallelStream().forEach(b -> calculateMove(b));
 
-        branches.parallelStream().forEach(b -> evaluation(b));
-
-        List<XYTileMv> moves = new ArrayList<>(myAnts.size());
-
-        AtomicBoolean optimal = new AtomicBoolean(false);
-
-        map.entrySet().parallelStream().filter(entry -> {
-            return entry.getValue().parallelStream().allMatch(mv -> mv.oppKilled > mv.myKilled);
-        }).max((b1, b2) -> {
-            return value(b1.getValue()) - value(b2.getValue());
-        }).ifPresent(entry -> {
-            LOGGER.info("combat optimal move: {}", entry.getValue());
-            convertMoves(entry.getKey(), moves);
-            optimal.set(true);
-        });
+        List<XYTileMv> moves = evaluateMoves(map, aggressive);
 
         LOGGER.info("combat formation: {}, {}, {}", moves, myAntsList, oppAntsList);
 
@@ -298,7 +302,7 @@ public class Minimax {
         return true;
     }
 
-    private static void evaluation(MMMove myMove) {
+    private static void calculateMove(MMMove myMove) {
         List<XYTile> myAnts = new ArrayList<>();
         getDestAnts(myMove, myAnts, true);
 
@@ -350,9 +354,102 @@ public class Minimax {
         myMove.myKilled = myKilled.get();
         myMove.oppKilled = oppKilled.get();
         myMove.muDist = dist.get();
+        myMove.killedDiff = myMove.oppKilled - myMove.myKilled;
     }
 
-    private static int value(List<MMMove> move) {
-        return move.oppKilled * 250 - move.myKilled * 200 -move.muDist;
+    private static List<XYTileMv>  evaluateMoves(ConcurrentMap<MMMove, List<MMMove>> map, boolean aggressive) {
+        List<XYTileMv> moves = new ArrayList<>();
+
+        if (map.size() > 1) {
+            ConcurrentMap<MMMove, MMEva> evaMap = new ConcurrentHashMap<>();
+
+            map.entrySet().parallelStream().forEach(entry -> {
+                MMEva eva = new MMEva();
+
+                eva.killDiffMin = entry.getValue().parallelStream().mapToInt(m -> m.killedDiff).min().orElseGet(() -> Integer.MIN_VALUE);
+                eva.myKillMax = entry.getValue().parallelStream().mapToInt(m -> m.myKilled).max().orElseGet(() -> Integer.MAX_VALUE);
+                eva.oppKillMin = entry.getValue().parallelStream().mapToInt(m -> m.oppKilled).min().orElseGet(() -> Integer.MIN_VALUE);
+                eva.distMax = entry.getValue().parallelStream().mapToInt(m -> m.muDist).max().orElseGet(() -> Integer.MAX_VALUE);
+
+                evaMap.put(entry.getKey(), eva);
+            });
+
+            int maxKillDiff = evaMap.entrySet().parallelStream().mapToInt(entry -> entry.getValue().killDiffMin).max().orElseGet(() -> Integer.MIN_VALUE);
+            List<Map.Entry<MMMove, MMEva>> maxKilledList = evaMap.entrySet().parallelStream().filter(entry -> entry.getValue().killDiffMin == maxKillDiff).collect(Collectors.toList());
+
+            if (maxKilledList.size() > 1) {
+                if (aggressive) {
+                    int maxOppKill = maxKilledList.parallelStream().mapToInt(entry -> entry.getValue().oppKillMin).max().orElseGet(() -> Integer.MIN_VALUE);
+                    List<Map.Entry<MMMove, MMEva>> maxOppKilledList = maxKilledList.parallelStream().filter(entry -> entry.getValue().oppKillMin == maxOppKill).collect(Collectors.toList());
+
+                    if (maxOppKilledList.size() > 1) {
+                        int minMyKill = maxOppKilledList.parallelStream().mapToInt(entry -> entry.getValue().myKillMax).min().orElseGet(() -> Integer.MAX_VALUE);
+                        List<Map.Entry<MMMove, MMEva>> minMyKilledList = maxOppKilledList.parallelStream().filter(entry -> entry.getValue().myKillMax == minMyKill).collect(Collectors.toList());
+
+                        if (minMyKilledList.size() > 1) {
+
+                            int minDist = minMyKilledList.parallelStream().mapToInt(entry -> entry.getValue().distMax).min().orElseGet(() -> Integer.MAX_VALUE);
+                            List<Map.Entry<MMMove, MMEva>> minDistList = minMyKilledList.parallelStream().filter(entry -> entry.getValue().distMax == minDist).collect(Collectors.toList());
+
+                            if (minDistList.size() > 1) {
+                                int index = ThreadLocalRandom.current().nextInt(minDistList.size());
+                                convertMoves(minDistList.get(index).getKey(), moves);
+                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(index).getKey(), minDistList.get(index).getValue());
+                            } else if (minDistList.size() == 1) {
+                                convertMoves(minDistList.get(0).getKey(), moves);
+                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(0).getKey(), minDistList.get(0).getValue());
+                            }
+                        } else if (minMyKilledList.size() == 1) {
+                            convertMoves(minMyKilledList.get(0).getKey(), moves);
+                            LOGGER.info("combat evaluation max my: {} {} {}", aggressive, minMyKilledList.get(0).getKey(), minMyKilledList.get(0).getValue());
+                        }
+
+                    } else if (maxOppKilledList.size() == 1) {
+                        convertMoves(maxOppKilledList.get(0).getKey(), moves);
+                        LOGGER.info("combat evaluation max opp: {} {} {}", aggressive, maxOppKilledList.get(0).getKey(), maxOppKilledList.get(0).getValue());
+                    }
+
+                } else {
+                    int minMyKill = maxKilledList.parallelStream().mapToInt(entry -> entry.getValue().myKillMax).min().orElseGet(() -> Integer.MAX_VALUE);
+                    List<Map.Entry<MMMove, MMEva>> minMyKilledList = maxKilledList.parallelStream().filter(entry -> entry.getValue().myKillMax == minMyKill).collect(Collectors.toList());
+
+                    if (minMyKilledList.size() > 1) {
+
+                        int maxOppKill = minMyKilledList.parallelStream().mapToInt(entry -> entry.getValue().oppKillMin).max().orElseGet(() -> Integer.MIN_VALUE);
+                        List<Map.Entry<MMMove, MMEva>> maxOppKilledList = minMyKilledList.parallelStream().filter(entry -> entry.getValue().oppKillMin == maxOppKill).collect(Collectors.toList());
+
+                        if (maxOppKilledList.size() > 1) {
+                            int minDist = maxOppKilledList.parallelStream().mapToInt(entry -> entry.getValue().distMax).min().orElseGet(() -> Integer.MAX_VALUE);
+                            List<Map.Entry<MMMove, MMEva>> minDistList = maxOppKilledList.parallelStream().filter(entry -> entry.getValue().distMax == minDist).collect(Collectors.toList());
+
+                            if (minDistList.size() > 1) {
+                                int index = ThreadLocalRandom.current().nextInt(minDistList.size());
+                                convertMoves(minDistList.get(index).getKey(), moves);
+                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(index).getKey(), minDistList.get(index).getValue());
+                            } else if (minDistList.size() == 1) {
+                                convertMoves(minDistList.get(0).getKey(), moves);
+                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(0).getKey(), minDistList.get(0).getValue());
+                            }
+                        } else if (maxOppKilledList.size() == 1) {
+                            convertMoves(maxOppKilledList.get(0).getKey(), moves);
+                            LOGGER.info("combat evaluation max opp: {} {} {}", aggressive, maxOppKilledList.get(0).getKey(), maxOppKilledList.get(0).getValue());
+                        }
+
+                    } else if (minMyKilledList.size() == 1) {
+                        convertMoves(minMyKilledList.get(0).getKey(), moves);
+                        LOGGER.info("combat evaluation max my: {} {} {}", aggressive, minMyKilledList.get(0).getKey(), minMyKilledList.get(0).getValue());
+                    }
+                }
+            } else if (maxKilledList.size() == 1) {
+                convertMoves(maxKilledList.get(0).getKey(), moves);
+                LOGGER.info("combat evaluation max diff: {} {} {}", aggressive, maxKilledList.get(0).getKey(), maxKilledList.get(0).getValue());
+            }
+        } else if (map.size() == 1) {
+            convertMoves(map.entrySet().iterator().next().getKey(), moves);
+            LOGGER.info("combat evaluation single: {} {} {}", aggressive, map.entrySet().iterator().next().getKey(), map.entrySet().iterator().next().getValue());
+        }
+
+        return moves;
     }
+
 }

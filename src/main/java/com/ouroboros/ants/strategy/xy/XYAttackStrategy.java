@@ -36,8 +36,9 @@ public class XYAttackStrategy {
     private static final int EXPLORE_DIST = 10;
     private static final int ENEMY_DIST = 5;
     private static final int COMBAT_DIST = 5;
-    private static final int ALLY_DIST = 12;
     private static final int ANTI_DIST = 5;
+    private static final int ALLY_DIST = 12;
+
 
     static void calcOppInfArea(List<Tile> oppAnts) {
         int dist = ATTACK_DIST;
@@ -298,7 +299,7 @@ public class XYAttackStrategy {
 
         int cDist = COMBAT_DIST;
 
-        Set<XYTile> included = Collections.newSetFromMap(new ConcurrentHashMap<>());
+        Set<XYTile> myIncluded = Collections.newSetFromMap(new ConcurrentHashMap<>());
         Map<XYTile, Set<XYTile>> combMyAnts = new ConcurrentHashMap<>();
 
         cTargets.parallelStream().forEachOrdered(tile -> {
@@ -319,13 +320,14 @@ public class XYAttackStrategy {
                     },
                     l -> l < cDist,
                     (t, l) -> {
-                        if (t.getStatus().isMyAnt() && !t.getStatus().isMoved() && included.add(t)) {
+                        if (t.getStatus().isMyAnt() && !t.getStatus().isMoved() && myIncluded.add(t)) {
                             allies.add(t);
                         }
                     },
                     0);
         });
 
+        Set<XYTile> oppIncluded = Collections.newSetFromMap(new ConcurrentHashMap<>());
         Map<XYTile, Set<XYTile>> combOppAnts = new ConcurrentHashMap<>();
 
         int eDist = ANTI_DIST;
@@ -352,6 +354,7 @@ public class XYAttackStrategy {
                         (t, l) -> {
                             if (t.getStatus().isOppAnt()) {
                                 myEnemies.add(t);
+                                oppIncluded.add(t);
                             }
                         },
                         0);
@@ -370,6 +373,8 @@ public class XYAttackStrategy {
             return !combMyAnts.get(t).isEmpty() && !combOppAnts.get(t).isEmpty();
         }).collect(Collectors.toList());
 
+        boolean aggressive = myIncluded.size() - oppIncluded.size() > 10;
+
         fTargets.parallelStream().forEachOrdered(t -> {
             Set<XYTile> ma = combMyAnts.get(t);
             Set<XYTile> oa = combOppAnts.get(t);
@@ -379,7 +384,7 @@ public class XYAttackStrategy {
             }
 
             if (!ma.isEmpty() && !oa.isEmpty()) {
-                Minimax.minimax(ma, oa)
+                Minimax.minimax(ma, oa, aggressive)
                         .parallelStream().forEach(mv -> op.apply(mv, move));
             }
         });
@@ -388,33 +393,32 @@ public class XYAttackStrategy {
 
         fTargets.parallelStream().forEach(tile -> {
             int diff = combOppAnts.get(tile).size() - combMyAnts.get(tile).size();
+            diff = diff < 0 ? 1 : (diff + 1);
 
-            if (diff > 0) {
-                Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
-                searched.put(tile, -1);
-                TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
-                    (t, l) -> {
-                        Integer lv = searched.get(t.getTile());
-                        if (lv == null || l < lv) {
-                            searched.put(t.getTile(), l);
-                            return true;
-                        }
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            searched.put(tile, -1);
+            TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
+                (t, l) -> {
+                    Integer lv = searched.get(t.getTile());
+                    if (lv == null || l < lv) {
+                        searched.put(t.getTile(), l);
+                        return true;
+                    }
 
-                        return false;
-                    },
-                    (l, c) -> l < aDist && c.get() > 0,
-                    (t, c) -> {
-                        if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
-                            if (op.apply(t, move)) {
-                                LOGGER.info("combat reinforcement: {} {}", tile, t);
-                                c.getAndDecrement();
-                            }
+                    return false;
+                },
+                (l, c) -> l < aDist && c.get() > 0,
+                (t, c) -> {
+                    if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
+                        if (op.apply(t, move)) {
+                            LOGGER.info("combat reinforcement: {} {}", tile, t);
+                            c.getAndDecrement();
                         }
-                    },
-                    new AtomicInteger(diff),
-                    0
-                );
-            }
+                    }
+                },
+                new AtomicInteger(diff),
+                0
+            );
         });
     }
 
