@@ -42,7 +42,7 @@ public class XYAttackStrategy {
     private static final int SUB_DIST = 10;
 
     private static final int THRESHOLD = 5;
-    private static final int NOT_FIGHT = 3;
+    private static final double NOT_FIGHT = 2.5d;
 
 
     static void calcOppInfArea(List<Tile> oppAnts) {
@@ -79,7 +79,7 @@ public class XYAttackStrategy {
                                     Integer lv = searched.get(t.getTile());
                                     if (lv == null || l < lv) {
                                         searched.put(t.getTile(), l);
-                                        return true;
+                                        return !t.getTile().getStatus().isTaboo();
                                     }
 
                                     return false;
@@ -332,13 +332,6 @@ public class XYAttackStrategy {
 
         toFight.removeAll(dupAnts);
 
-        toFight = toFight.parallelStream().filter(t -> {
-            Set<XYTile> ma = allyAnts.get(t);
-            Set<XYTile> oa = enemyAnts.get(t);
-            return !(oa.size() < NOT_FIGHT && ma.size() > NOT_FIGHT * 2);
-        }).collect(Collectors.toList());
-
-
         if (!toFight.isEmpty()) {
             for (int i = 0; i < toFight.size(); i++) {
                 LOGGER.info("enemies to hunt 2: {}", i);
@@ -362,17 +355,49 @@ public class XYAttackStrategy {
         boolean aggressive = myFight.size() - oppFight.size() > 5;
         boolean reduced = lBat.get() > (MAX_FIGHT / 2);
 
-        toFight.parallelStream().forEachOrdered(t -> {
-            Set<XYTile> ma = allyAnts.get(t);
-            Set<XYTile> oa = enemyAnts.get(t);
+        int sgDist = ENEMY_DIST;
+        int sgSize = Utils.searchSize(sgDist);
+
+        toFight.parallelStream().forEachOrdered(tile -> {
+            Set<XYTile> ma = allyAnts.get(tile);
+            Set<XYTile> oa = enemyAnts.get(tile);
 
             if (ma.isEmpty()) {
-                LOGGER.info("invalid combat: {}", t);
+                LOGGER.info("invalid combat: {}", tile);
             }
 
-            if (!ma.isEmpty() && !oa.isEmpty() && !terminator.get()) {
-                Minimax.minimax(ma, oa, aggressive, reduced, terminator)
-                        .parallelStream().forEach(mv -> op.apply(mv, move));
+            if (oa.size() < NOT_FIGHT && ma.size() >= NOT_FIGHT * 2) {
+                oa.parallelStream().forEach(ot -> {
+                    Map<XYTile, Integer> searched = new ConcurrentHashMap<>(sgSize);
+                    searched.put(ot, -1);
+                    TreeSearch.breadthFirstMultiSearch(ot.getNbDir(),
+                            (t, l) -> {
+                                Integer lv = searched.get(t.getTile());
+                                if (lv == null || l < lv) {
+                                    searched.put(t.getTile(), l);
+                                    return true;
+                                }
+
+                                return false;
+                            },
+                            (l, c) -> l < sgDist && c.get() > 0,
+                            (t, c) -> {
+                                if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
+                                    if (op.apply(t, move)) {
+                                        LOGGER.info("combat lost enemy: {} {}", ot, t);
+                                        c.getAndDecrement();
+                                    }
+                                }
+                            },
+                            new AtomicInteger(oa.size()),
+                            0
+                    );
+                });
+            } else {
+                if (!ma.isEmpty() && !oa.isEmpty() && !terminator.get()) {
+                    Minimax.minimax(ma, oa, aggressive, reduced, terminator)
+                            .parallelStream().forEach(mv -> op.apply(mv, move));
+                }
             }
         });
 
@@ -394,7 +419,7 @@ public class XYAttackStrategy {
                         Integer lv = searched.get(t.getTile());
                         if (lv == null || l < lv) {
                             searched.put(t.getTile(), l);
-                            return true;
+                            return !t.getTile().getStatus().isTaboo();
                         }
 
                         return false;

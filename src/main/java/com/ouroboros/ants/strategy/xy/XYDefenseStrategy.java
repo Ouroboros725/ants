@@ -163,7 +163,7 @@ public class XYDefenseStrategy {
                         Integer lv = searched.get(t.getTile());
                         if (lv == null || l < lv) {
                             searched.put(t.getTile(), l);
-                            return true;
+                            return !t.getTile().getStatus().isTaboo();
                         }
 
                         return false;
