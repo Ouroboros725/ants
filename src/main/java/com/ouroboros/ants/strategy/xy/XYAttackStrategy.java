@@ -35,10 +35,10 @@ public class XYAttackStrategy {
     private static final int ATTACK_DIST = 3;
     private static final int HILL_RAID_DIST = 10;
     private static final int EXPLORE_DIST = 10;
-    private static final int ENEMY_DIST = 7;
+    private static final int ENEMY_DIST = 5;
     private static final int COMBAT_DIST = 3;
     private static final int ANTI_DIST = 5;
-    private static final int ALLY_DIST = 12;
+    private static final int ALLY_DIST = 15;
 
 
     static void calcOppInfArea(List<Tile> oppAnts) {
