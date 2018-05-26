@@ -17,6 +17,6 @@ public class Move {
 
     @Override
     public String toString() {
-        return "x:" + x + ",y:" + y + ",d:" + d;
+        return "y=" + y + ", x=" + x + ",d:" + d;
     }
 }

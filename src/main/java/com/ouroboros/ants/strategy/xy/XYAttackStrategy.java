@@ -10,7 +10,6 @@ import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.Utils;
 import com.ouroboros.ants.utils.xy.Minimax;
 import com.ouroboros.ants.utils.xy.TreeSearch;
-import com.ouroboros.ants.utils.xy.XYUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,10 +34,11 @@ public class XYAttackStrategy {
     private static final int ATTACK_DIST = 3;
     private static final int HILL_RAID_DIST = 10;
     private static final int EXPLORE_DIST = 10;
-    private static final int ENEMY_DIST = 7;
-    private static final int COMBAT_DIST = 3;
-    private static final int ANTI_DIST = 5;
-    private static final int ALLY_DIST = 12;
+    private static final int ENEMY_DIST = 4;
+    private static final int ALLY_DIST = 3;
+    private static final int MAX_FIGHT = 10;
+    private static final int MAX_ALLY = 5;
+    private static final int SUB_DIST = 10;
 
 
     static void calcOppInfArea(List<Tile> oppAnts) {
@@ -64,10 +64,11 @@ public class XYAttackStrategy {
             int attNum = attPHill < 5 ? attPHill : 5;
 
             int dist = HILL_RAID_DIST;
+            int size = Utils.searchSize(dist);
 
             hills.parallelStream().map(XYTile::getTile)
                     .forEach(h -> {
-                        Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+                        Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
                         searched.put(h, -1);
                         TreeSearch.breadthFirstMultiSearch(h.getNbDir(),
                                 (t, l) -> {
@@ -98,6 +99,7 @@ public class XYAttackStrategy {
         XYTile.updateVisitInfluence();
 
         int dist = EXPLORE_DIST;
+        int size = Utils.searchSize(dist);
 
         {
             exploreTaskLink.entrySet().removeIf(entry -> {
@@ -115,7 +117,7 @@ public class XYAttackStrategy {
 
         Set<XYTile> updated = Collections.newSetFromMap(new ConcurrentHashMap<>());
         myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
                         Integer lv = searched.get(t);
@@ -147,7 +149,7 @@ public class XYAttackStrategy {
 
             List<XYTileMvAggWt> wList = tile.getNbDir().stream().map(XYTileMvAggWt::new).collect(Collectors.toList());
 
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
             wList.parallelStream().filter(nbt -> !nbt.getMove().getTile().getStatus().isTaboo() && !nbt.getMove().getTile().getStatus().isMyAnt())
                     .forEach(nbt -> TreeSearch.depthFirstFill(nbt.getMove().getTile(),
                             (t, l) -> {
@@ -226,16 +228,18 @@ public class XYAttackStrategy {
         }
     }
 
-    public static void attackEnemy(List<Tile> oppAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
-        int dist = ENEMY_DIST;
+    public static void attackEnemy(List<Tile> myAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
+        int lDist = ALLY_DIST;
+        int lSize = Utils.searchSize(lDist);
 
-        Map<XYTile, Set<XYTile>> myAnts = new ConcurrentHashMap<>();
-        Map<XYTile, Set<XYTile>> enemyAnts = new ConcurrentHashMap<>();
+        Map<XYTile, Set<XYTile>> allyAnts = new ConcurrentHashMap<>();
+        Set<XYTile> myFight = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-        oppAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(41);
-            myAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
-            enemyAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
+
+        myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(lSize);
+            Set<XYTile> ally = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>());
+            allyAnts.put(tile, ally);
 
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
@@ -247,138 +251,97 @@ public class XYAttackStrategy {
 
                         return false;
                     },
-                    l -> l < dist,
+                    l -> l < lDist,
                     (t, l) -> {
+//                        LOGGER.info("combat ally: {} {} {} {}", tile, t, t.getStatus().isMyAnt(), t.getStatus().isMoved());
                         if (t.getStatus().isMyAnt() && !t.getStatus().isMoved()) {
-                            myAnts.get(tile).add(t);
-                        } else if (t.getStatus().isOppAnt()) {
-                            tile.getStatus().incEnemyCnt();
-                            enemyAnts.get(tile).add(t);
+                            ally.add(t);
+                            myFight.add(t);
                         }
                     },
                     0);
         });
 
-        List<XYTile> toFight = oppAnts.parallelStream().map(XYTile::getTile)
-                .filter(t -> t.getStatus().getEnemyCnt() > 1)
+        int eDist = ENEMY_DIST;
+        int eSize = Utils.searchSize(eDist);
+
+        Map<XYTile, Set<XYTile>> enemyAnts = new ConcurrentHashMap<>();
+        Set<XYTile> oppFight = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
+        myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(eSize);
+            Set<XYTile> enemy = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>());
+            enemyAnts.put(tile, enemy);
+
+            TreeSearch.depthFirstFill(tile,
+                    (t, l) -> {
+                        Integer lv = searched.get(t);
+                        if (lv == null || l < lv) {
+                            searched.put(t, l);
+                            return true;
+                        }
+
+                        return false;
+                    },
+                    l -> l < eDist,
+                    (t, l) -> {
+                        if (t.getStatus().isOppAnt()) {
+                            tile.getStatus().incEnemyCnt();
+                            enemy.add(t);
+                            oppFight.add(t);
+                        }
+                    },
+                    0);
+        });
+
+        List<XYTile> toFight = myAnts.parallelStream().map(XYTile::getTile)
+                .filter(t -> t.getStatus().getEnemyCnt() >= 1 && !allyAnts.get(t).isEmpty())
                 .sorted((t1, t2) -> {
                     return t2.getStatus().getEnemyCnt() - t1.getStatus().getEnemyCnt();
-                }).collect(Collectors.toList());
+                }).limit(MAX_FIGHT).collect(Collectors.toList());
 
+        Set<XYTile> picked = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap());
         Set<XYTile> dupAnts = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap());
-        toFight.stream().forEachOrdered(tile -> {
-            if (myAnts.get(tile).isEmpty()) {
-                dupAnts.add(tile);
-                return;
-            }
 
-            if (!dupAnts.contains(tile)) {
-                enemyAnts.get(tile).parallelStream().filter(t -> !t.equals(tile) && toFight.contains(t))
-                        .forEach(t -> {
-                            LOGGER.info("merge hunt ants: {} {}", t, myAnts.get(t));
-                            myAnts.get(tile).addAll(myAnts.get(t));
-                            dupAnts.add(t);
-                        });
+        toFight.stream().forEachOrdered(tile -> {
+            if (picked.add(tile)) {
+                Set<XYTile> enemy = enemyAnts.get(tile);
+                Set<XYTile> ally = allyAnts.get(tile);
+
+                Set<XYTile> newAlly = Collections.newSetFromMap(new ConcurrentHashMap());
+                newAlly.addAll(allyAnts.get(tile));
+
+                do {
+                    List<XYTile> allyList = new ArrayList<>(newAlly);
+                    newAlly.clear();
+                    allyList.parallelStream().filter(t -> picked.add(t))
+                            .forEach(t -> {
+//                                LOGGER.info("merge hunt ants: {} {}", t, allyAnts.get(t));
+                                enemy.addAll(enemyAnts.get(t));
+                                ally.addAll(allyAnts.get(t));
+                                newAlly.add(t);
+                                dupAnts.add(t);
+                            });
+                } while (!newAlly.isEmpty() && ally.size() < MAX_ALLY);
             }
         });
 
         toFight.removeAll(dupAnts);
 
         if (!toFight.isEmpty()) {
-            LOGGER.info("enemies to hunt 2: {}", toFight.size());
-            LOGGER.info("enemies to hunt team: {}", myAnts.get(toFight.get(0)));
-            LOGGER.info("enemies to hunt opp: {}", enemyAnts.get(toFight.get(0)));
-        }
-
-        Set<XYTile> cTargets = Collections.newSetFromMap(new ConcurrentHashMap<>(toFight.size()));
-        toFight.parallelStream().forEachOrdered(t -> {
-            XYTile ct = XYUtils.findCenter(myAnts.get(t));
-            if (ct != null) {
-                cTargets.add(ct);
+            for (int i = 0; i < toFight.size(); i++) {
+                LOGGER.info("enemies to hunt 2: {}", i);
+                LOGGER.info("enemies to hunt ant: {}", toFight.get(i));
+                LOGGER.info("enemies to hunt team: {}", allyAnts.get(toFight.get(i)));
+                LOGGER.info("enemies to hunt opp: {}", enemyAnts.get(toFight.get(i)));
             }
-        });
-
-        int cDist = COMBAT_DIST;
-
-        Set<XYTile> myIncluded = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        Map<XYTile, Set<XYTile>> combMyAnts = new ConcurrentHashMap<>();
-
-        cTargets.parallelStream().forEachOrdered(tile -> {
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(85);
-
-            Set<XYTile> allies = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>());
-            combMyAnts.put(tile, allies);
-
-            TreeSearch.depthFirstFill(tile,
-                    (t, l) -> {
-                        Integer lv = searched.get(t);
-                        if (lv == null || l < lv) {
-                            searched.put(t, l);
-                            return true;
-                        }
-
-                        return false;
-                    },
-                    l -> l < cDist,
-                    (t, l) -> {
-                        if (t.getStatus().isMyAnt() && !t.getStatus().isMoved() && myIncluded.add(t)) {
-                            allies.add(t);
-                        }
-                    },
-                    0);
-        });
-
-        Set<XYTile> oppIncluded = Collections.newSetFromMap(new ConcurrentHashMap<>());
-        Map<XYTile, Set<XYTile>> combOppAnts = new ConcurrentHashMap<>();
-
-        int eDist = ANTI_DIST;
-
-        cTargets.parallelStream().forEach(tile -> {
-            Set<XYTile> mcb = combMyAnts.get(tile);
-            Set<XYTile> myEnemies = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>());
-            combOppAnts.put(tile, myEnemies);
-
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(61);
-
-            mcb.parallelStream().forEach(at -> {
-                TreeSearch.depthFirstFill(at,
-                        (t, l) -> {
-                            Integer lv = searched.get(t);
-                            if (lv == null || l < lv) {
-                                searched.put(t, l);
-                                return true;
-                            }
-
-                            return false;
-                        },
-                        l -> l < eDist,
-                        (t, l) -> {
-                            if (t.getStatus().isOppAnt()) {
-                                myEnemies.add(t);
-                                oppIncluded.add(t);
-                            }
-                        },
-                        0);
-            });
-        });
-
-        if (!cTargets.isEmpty()) {
-            LOGGER.info("combat: {}", cTargets.size());
-            XYTile cf = cTargets.iterator().next();
-            LOGGER.info("combat center: {}", cf);
-            LOGGER.info("combat team: {}", combMyAnts.get(cf));
-            LOGGER.info("combat opp: {}", combOppAnts.get(cf));
         }
 
-        List<XYTile> fTargets = cTargets.stream().filter(t -> {
-            return !combMyAnts.get(t).isEmpty() && !combOppAnts.get(t).isEmpty();
-        }).collect(Collectors.toList());
+        boolean aggressive = myFight.size() - oppFight.size() > 5;
 
-        boolean aggressive = myIncluded.size() - oppIncluded.size() > 5;
-
-        fTargets.parallelStream().forEachOrdered(t -> {
-            Set<XYTile> ma = combMyAnts.get(t);
-            Set<XYTile> oa = combOppAnts.get(t);
+        toFight.parallelStream().forEachOrdered(t -> {
+            Set<XYTile> ma = allyAnts.get(t);
+            Set<XYTile> oa = enemyAnts.get(t);
 
             if (ma.isEmpty()) {
                 LOGGER.info("invalid combat: {}", t);
@@ -390,35 +353,36 @@ public class XYAttackStrategy {
             }
         });
 
-        int aDist = ALLY_DIST;
+        int sDist = SUB_DIST;
+        int sSize = Utils.searchSize(sDist);
 
-        fTargets.parallelStream().forEach(tile -> {
-            int diff = combOppAnts.get(tile).size() - combMyAnts.get(tile).size();
-            diff = diff < 0 ? 1 : (diff + 1);
+        toFight.parallelStream().forEach(tile -> {
+            int diff = enemyAnts.get(tile).size() - allyAnts.get(tile).size();
+            diff = diff < 0 ? 2 : (diff + 3);
 
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(sSize);
             searched.put(tile, -1);
             TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
-                (t, l) -> {
-                    Integer lv = searched.get(t.getTile());
-                    if (lv == null || l < lv) {
-                        searched.put(t.getTile(), l);
-                        return true;
-                    }
-
-                    return false;
-                },
-                (l, c) -> l < aDist && c.get() > 0,
-                (t, c) -> {
-                    if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
-                        if (op.apply(t, move)) {
-                            LOGGER.info("combat reinforcement: {} {}", tile, t);
-                            c.getAndDecrement();
+                    (t, l) -> {
+                        Integer lv = searched.get(t.getTile());
+                        if (lv == null || l < lv) {
+                            searched.put(t.getTile(), l);
+                            return true;
                         }
-                    }
-                },
-                new AtomicInteger(diff),
-                0
+
+                        return false;
+                    },
+                    (l, c) -> l < sDist && c.get() > 0,
+                    (t, c) -> {
+                        if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
+                            if (op.apply(t, move)) {
+                                LOGGER.info("combat reinforcement: {} {}", tile, t);
+                                c.getAndDecrement();
+                            }
+                        }
+                    },
+                    new AtomicInteger(diff),
+                    0
             );
         });
     }
