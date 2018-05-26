@@ -8,8 +8,10 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.ouroboros.ants.Ants.strategyExecutor;
+import static com.ouroboros.ants.Ants.watchDogExecutor;
 
 /**
  * Created by zhanxies on 4/8/2018.
@@ -20,25 +22,26 @@ public abstract class AbstractStrategyExecutor implements StrategyExecutor {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AbstractStrategyExecutor.class);
 
-    volatile AtomicBoolean outputSwitch = new AtomicBoolean();
-
     volatile CountDownLatch finishSwitch;
 
     @Override
     public void execute(StrategyConsumer function, long time) {
-        outputSwitch.set(true);
+        AtomicBoolean outputSwitch = new AtomicBoolean(true);
+
         finishSwitch = new CountDownLatch(1);
+
+        AtomicBoolean terminator = new AtomicBoolean(false);
 
         strategyExecutor.execute(() -> {
             try {
-                function.apply(this::stepOutput);
+                function.apply(m -> this.stepOutput(m, outputSwitch), terminator);
                 finishSwitch.countDown();
             } catch (Exception ex) {
-                LOGGER.error("strategy crashed.", ex);
+                LOGGER.error("strategy unfinished.", ex);
             }
         });
 
-        strategyExecutor.execute(() -> {
+        watchDogExecutor.execute(() -> {
             try {
                 try {
                     boolean done = finishSwitch.await(time, TimeUnit.MILLISECONDS);
@@ -50,15 +53,16 @@ public abstract class AbstractStrategyExecutor implements StrategyExecutor {
                     Thread.currentThread().interrupt();
                     throw e;
                 }
-
-                finishOutput();
             } catch (Exception ex) {
                 LOGGER.error("timer crashed.", ex);
+            } finally {
+                terminator.set(true);
+                finishOutput(outputSwitch);
             }
         });
     }
 
-    boolean stepOutput(Move move) {
+    boolean stepOutput(Move move, AtomicBoolean outputSwitch) {
         if (outputSwitch.get()) {
             this.move(move);
             return true;
@@ -67,7 +71,7 @@ public abstract class AbstractStrategyExecutor implements StrategyExecutor {
         return false;
     }
 
-    private void finishOutput() {
+    private void finishOutput(AtomicBoolean outputSwitch) {
         outputSwitch.set(false);
         finish();
     }

@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -39,6 +40,9 @@ public class XYAttackStrategy {
     private static final int MAX_FIGHT = 10;
     private static final int MAX_ALLY = 5;
     private static final int SUB_DIST = 10;
+
+    private static final int THRESHOLD = 5;
+    private static final int NOT_FIGHT = 3;
 
 
     static void calcOppInfArea(List<Tile> oppAnts) {
@@ -228,13 +232,13 @@ public class XYAttackStrategy {
         }
     }
 
-    public static void attackEnemy(List<Tile> myAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
+    public static void attackEnemy(List<Tile> myAnts, BiFunction<XYTileMv,
+            Consumer<Move>, Boolean> op, Consumer<Move> move, AtomicBoolean terminator) {
         int lDist = ALLY_DIST;
         int lSize = Utils.searchSize(lDist);
 
         Map<XYTile, Set<XYTile>> allyAnts = new ConcurrentHashMap<>();
         Set<XYTile> myFight = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
 
         myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
             Map<XYTile, Integer> searched = new ConcurrentHashMap<>(lSize);
@@ -328,6 +332,13 @@ public class XYAttackStrategy {
 
         toFight.removeAll(dupAnts);
 
+        toFight = toFight.parallelStream().filter(t -> {
+            Set<XYTile> ma = allyAnts.get(t);
+            Set<XYTile> oa = enemyAnts.get(t);
+            return !(oa.size() < NOT_FIGHT && ma.size() > NOT_FIGHT * 2);
+        }).collect(Collectors.toList());
+
+
         if (!toFight.isEmpty()) {
             for (int i = 0; i < toFight.size(); i++) {
                 LOGGER.info("enemies to hunt 2: {}", i);
@@ -337,7 +348,19 @@ public class XYAttackStrategy {
             }
         }
 
+        AtomicInteger sBat = new AtomicInteger(0);
+        AtomicInteger lBat = new AtomicInteger(0);
+
+        toFight.parallelStream().forEach(t -> {
+            if ((allyAnts.get(t).size() + enemyAnts.get(t).size()) <= THRESHOLD) {
+                sBat.incrementAndGet();
+            } else {
+                lBat.incrementAndGet();
+            }
+        });
+
         boolean aggressive = myFight.size() - oppFight.size() > 5;
+        boolean reduced = lBat.get() > (MAX_FIGHT / 2);
 
         toFight.parallelStream().forEachOrdered(t -> {
             Set<XYTile> ma = allyAnts.get(t);
@@ -347,11 +370,15 @@ public class XYAttackStrategy {
                 LOGGER.info("invalid combat: {}", t);
             }
 
-            if (!ma.isEmpty() && !oa.isEmpty()) {
-                Minimax.minimax(ma, oa, aggressive)
+            if (!ma.isEmpty() && !oa.isEmpty() && !terminator.get()) {
+                Minimax.minimax(ma, oa, aggressive, reduced, terminator)
                         .parallelStream().forEach(mv -> op.apply(mv, move));
             }
         });
+
+        if (terminator.get()) {
+            return;
+        }
 
         int sDist = SUB_DIST;
         int sSize = Utils.searchSize(sDist);

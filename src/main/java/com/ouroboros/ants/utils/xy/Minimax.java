@@ -13,6 +13,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -26,6 +27,7 @@ public class Minimax {
 
     private static final int SIEGE_DIST2 = 5;
     private static final int BRANCH_THRESHOLD_MAX = 3000;
+    private static final int BRANCH_THRESHOLD_REDUCED = 2000;
     private static final int BRANCH_THRESHOLD_MIN = 1000;
     private static final int THRESHOLD = 5;
 
@@ -119,10 +121,10 @@ public class Minimax {
         }
     }
 
-    public static List<XYTileMv> minimax(Set<XYTile> myAnts, Set<XYTile> oppAnts, boolean aggressive) {
+    public static List<XYTileMv> minimax(Set<XYTile> myAnts, Set<XYTile> oppAnts, boolean aggressive, boolean reduced, AtomicBoolean terminator) {
         LOGGER.info("minimax: {} {}", myAnts, oppAnts);
 
-        int threshold = (myAnts.size() + oppAnts.size() <= THRESHOLD) ? BRANCH_THRESHOLD_MIN : BRANCH_THRESHOLD_MAX;
+        int threshold = (myAnts.size() + oppAnts.size() <= THRESHOLD) ? BRANCH_THRESHOLD_MIN : (reduced ? BRANCH_THRESHOLD_REDUCED :BRANCH_THRESHOLD_MAX);
 
         List<XYTile> myAntsList = new ArrayList<>(myAnts);
         List<XYTile> oppAntsList = new ArrayList<>(oppAnts);
@@ -132,13 +134,21 @@ public class Minimax {
 
         ConcurrentMap<MMMove, List<MMMove>> map = new ConcurrentHashMap<>();
 
-        List<MMMove> branches = max(myAntsList, oppAntsList, null, myWarZone, map, center, new AtomicInteger(0), threshold);
+        List<MMMove> branches = max(myAntsList, oppAntsList, null, myWarZone, map, center, new AtomicInteger(0), threshold, terminator);
 
         LOGGER.info("minimax branches: {} {} {}", branches.size(), myAnts.size(), oppAnts.size());
 
-        branches.parallelStream().forEach(b -> calculateMove(b));
+        if (terminator.get()) {
+            return Collections.emptyList();
+        }
 
-        List<XYTileMv> moves = evaluateMoves(map, aggressive);
+        branches.parallelStream().forEach(b -> calculateMove(b, terminator));
+
+        if (terminator.get()) {
+            return Collections.emptyList();
+        }
+
+        List<XYTileMv> moves = evaluateMoves(map, aggressive, terminator);
 
         LOGGER.info("combat formation: {}, {}, {}", moves, myAntsList, oppAntsList);
 
@@ -165,12 +175,18 @@ public class Minimax {
     }
 
     private static List<MMMove> max(List<XYTile> myAnts, List<XYTile> oppAnts, MMMove myMove, Set<XYTile> myWarZone,
-                                                       ConcurrentMap<MMMove, List<MMMove>> map, XYTile warCenter, AtomicInteger count, int threshold) {
+                                    ConcurrentMap<MMMove, List<MMMove>> map, XYTile warCenter,
+                                    AtomicInteger count, int threshold, AtomicBoolean terminator) {
+
+        if (terminator.get()) {
+            return Collections.emptyList();
+        }
+
         if (myAnts.isEmpty()) {
             List<XYTile> destAnts = new ArrayList<>();
             getDestAnts(myMove, destAnts, true);
             Set<XYTile> oppWarZone = underSiegeArea(destAnts);
-            List<MMMove> mm = min(oppAnts, myMove, oppWarZone, count, threshold);
+            List<MMMove> mm = min(oppAnts, myMove, oppWarZone, count, threshold, terminator);
             map.put(myMove, mm);
             return mm;
 
@@ -179,7 +195,7 @@ public class Minimax {
                 XYTile a = myAnts.get(0);
                 List<XYTile> nma = new ArrayList<>(myAnts.subList(1, myAnts.size()));
                 return generateMoves(a, myMove, true, myWarZone, warCenter).parallelStream().flatMap(m -> {
-                    return max(nma, oppAnts, m, myWarZone, map, warCenter, count, threshold).stream();
+                    return max(nma, oppAnts, m, myWarZone, map, warCenter, count, threshold, terminator).stream();
                 }).collect(Collectors.toList());
             } else {
                 LOGGER.info("combat branches overwhelm max");
@@ -188,7 +204,12 @@ public class Minimax {
         }
     }
 
-    private static List<MMMove> min(List<XYTile> oppAnts, MMMove myMove, Set<XYTile> oppWarZone, AtomicInteger count, int threshold) {
+    private static List<MMMove> min(List<XYTile> oppAnts, MMMove myMove, Set<XYTile> oppWarZone, AtomicInteger count,
+                                    int threshold, AtomicBoolean terminator) {
+        if (terminator.get()) {
+            return Collections.emptyList();
+        }
+
         if (oppAnts.isEmpty()) {
             count.incrementAndGet();
             return Lists.newArrayList(myMove);
@@ -197,7 +218,7 @@ public class Minimax {
                 XYTile a = oppAnts.get(0);
                 List<XYTile> noa = new ArrayList<>(oppAnts.subList(1, oppAnts.size()));
                 return generateMoves(a, myMove, false, oppWarZone, null).parallelStream().flatMap(m -> {
-                    return min(noa, m, oppWarZone, count, threshold).stream();
+                    return min(noa, m, oppWarZone, count, threshold, terminator).stream();
                 }).collect(Collectors.toList());
             } else {
                 LOGGER.info("combat branches overwhelm min");
@@ -312,7 +333,11 @@ public class Minimax {
         return true;
     }
 
-    private static void calculateMove(MMMove myMove) {
+    private static void calculateMove(MMMove myMove, AtomicBoolean terminator) {
+        if (terminator.get()) {
+            return;
+        }
+
         List<XYTile> myAnts = new ArrayList<>();
         getDestAnts(myMove, myAnts, true);
 
@@ -367,7 +392,11 @@ public class Minimax {
         myMove.killedDiff = myMove.oppKilled - myMove.myKilled;
     }
 
-    private static List<XYTileMv>  evaluateMoves(ConcurrentMap<MMMove, List<MMMove>> map, boolean aggressive) {
+    private static List<XYTileMv>  evaluateMoves(ConcurrentMap<MMMove, List<MMMove>> map, boolean aggressive, AtomicBoolean terminator) {
+        if (terminator.get()) {
+            return Collections.emptyList();
+        }
+
         List<XYTileMv> moves = new ArrayList<>();
 
         if (map.size() > 1) {
@@ -383,6 +412,10 @@ public class Minimax {
 
                 evaMap.put(entry.getKey(), eva);
             });
+
+            if (terminator.get()) {
+                return Collections.emptyList();
+            }
 
             int maxKillDiff = evaMap.entrySet().parallelStream().mapToInt(entry -> entry.getValue().killDiffMin).max().orElseGet(() -> Integer.MIN_VALUE);
             List<Map.Entry<MMMove, MMEva>> maxKilledList = evaMap.entrySet().parallelStream().filter(entry -> entry.getValue().killDiffMin == maxKillDiff).collect(Collectors.toList());

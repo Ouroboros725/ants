@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -32,7 +33,7 @@ public abstract class DumbAStarStrategy extends AbstractStrategy {
     Map<Tile, Integer> enemyHills;
 
     @Override
-    protected void setupStrategy(Global gameStates) {
+    protected void setupStrategy(Global gameStates, AtomicBoolean terminator) {
         water = new boolean[gameStates.xt][gameStates.yt];
         antsQueue = new EvictingQueue[gameStates.xt][gameStates.yt];
         ownHills = new HashSet<>();
@@ -40,7 +41,7 @@ public abstract class DumbAStarStrategy extends AbstractStrategy {
     }
 
     @Override
-    protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output) {
+    protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output, AtomicBoolean terminator) {
         for (Tile t : turnInfo.water) {
             water[t.x][t.y] = true;
         }

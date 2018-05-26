@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -78,7 +79,7 @@ public class AggStrategy extends AbstractStrategy {
     DistCalc manhDistCalc = (x1, y1, x2, y2) -> manhDist[x1][y1][x2][y2];
 
     @Override
-    protected void setupStrategy(Global gameStates) {
+    protected void setupStrategy(Global gameStates, AtomicBoolean terminator) {
         xt = gameStates.xt;
         yt = gameStates.yt;
 
@@ -147,7 +148,7 @@ public class AggStrategy extends AbstractStrategy {
     }
 
     @Override
-    protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output) {
+    protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output, AtomicBoolean terminator) {
         if (!turnInfo.myAnts.isEmpty()) {
             LOGGER.debug("init turn");
             initMovedAnts(xt, yt);

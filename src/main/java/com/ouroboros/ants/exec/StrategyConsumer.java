@@ -2,6 +2,7 @@ package com.ouroboros.ants.exec;
 
 import com.ouroboros.ants.utils.Move;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /**
@@ -11,5 +12,5 @@ import java.util.function.Consumer;
 @FunctionalInterface
 public interface StrategyConsumer {
 
-    void apply(Consumer<Move> output);
+    void apply(Consumer<Move> output, AtomicBoolean terminator);
 }
