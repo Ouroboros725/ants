@@ -4,6 +4,7 @@ import com.ouroboros.ants.game.Tile;
 import com.ouroboros.ants.game.xy.XYTile;
 import com.ouroboros.ants.game.xy.XYTileMv;
 import com.ouroboros.ants.utils.Move;
+import com.ouroboros.ants.utils.Utils;
 import com.ouroboros.ants.utils.xy.TreeSearch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +64,7 @@ public class XYDefenseStrategy {
 
     static void havFood(List<Tile> food, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
         int dist = FOOD_DIST - 1;
+        int size = Utils.searchSize(dist);
 
         Set<Tile> foodSet = new HashSet<>(food);
 
@@ -70,7 +72,7 @@ public class XYDefenseStrategy {
 //            LOGGER.info("miss food: {}", tile );
             int c = tile.getFood().getCount();
             final int cnt = c < 25 ? c : 24;
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(13);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
                         Integer lv = searched.get(t);
@@ -91,7 +93,7 @@ public class XYDefenseStrategy {
 
         food.parallelStream().map(XYTile::getTile).forEach(tile -> {
             int cnt = tile.getFood().getCount();
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(13);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
                         Integer lv = searched.get(t);
@@ -131,7 +133,7 @@ public class XYDefenseStrategy {
                         return false;
                     } else {
                         exclude.add(tile);
-                        Set<XYTile> searched = new HashSet<>(13);
+                        Set<XYTile> searched = new HashSet<>(size);
                         TreeSearch.depthFirstFill(tile,
                                 (t, l) -> {
                                     if (!searched.contains(t)) {
@@ -149,11 +151,12 @@ public class XYDefenseStrategy {
                 }).collect(Collectors.toList());
 
         int fDist = FOOD_HAV_DIST;
+        int fSize = Utils.searchSize(fDist);
 
         LOGGER.info("food: {}", toFood.size());
 
         toFood.parallelStream().forEach(h -> {
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(fSize);
             searched.put(h, -1);
             TreeSearch.breadthFirstMultiSearch(h.getNbDir(),
                     (t, l) -> {
@@ -190,10 +193,11 @@ public class XYDefenseStrategy {
             int attNum = defPHill > 1 ? defPHill : 1;
 
             int dist = DEFENCE_DIST;
+            int size = Utils.searchSize(dist);
 
             Map<XYTile, XYTile> oppAnts = new ConcurrentHashMap<>();
             hills.parallelStream().map(XYTile::getTile).forEach(tile -> {
-                Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+                Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
 
                 TreeSearch.depthFirstFill(tile,
                         (t, l) -> {

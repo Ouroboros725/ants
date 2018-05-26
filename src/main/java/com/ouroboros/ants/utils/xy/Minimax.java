@@ -25,7 +25,7 @@ public class Minimax {
     private static final Logger LOGGER = LoggerFactory.getLogger(Minimax.class);
 
     private static final int SIEGE_DIST2 = 5;
-    private static final int BRANCH_THRESHOLD = 2999;
+    private static final int BRANCH_THRESHOLD = 2500;
 
     private static class XYMove {
         XYTile origin;
@@ -124,10 +124,11 @@ public class Minimax {
         List<XYTile> oppAntsList = new ArrayList<>(oppAnts);
 
         Set<XYTile> myWarZone = underSiegeArea(oppAntsList);
+        XYTile center = XYUtils.findCenter(myWarZone);
 
         ConcurrentMap<MMMove, List<MMMove>> map = new ConcurrentHashMap<>();
 
-        List<MMMove> branches = max(myAntsList, oppAntsList, null, myWarZone, map, new AtomicInteger(0));
+        List<MMMove> branches = max(myAntsList, oppAntsList, null, myWarZone, map, center, new AtomicInteger(0));
 
         LOGGER.info("minimax branches: {} {} {}", branches.size(), myAnts.size(), oppAnts.size());
 
@@ -160,7 +161,7 @@ public class Minimax {
     }
 
     private static List<MMMove> max(List<XYTile> myAnts, List<XYTile> oppAnts, MMMove myMove, Set<XYTile> myWarZone,
-                                                       ConcurrentMap<MMMove, List<MMMove>> map, AtomicInteger count) {
+                                                       ConcurrentMap<MMMove, List<MMMove>> map, XYTile warCenter, AtomicInteger count) {
         if (myAnts.isEmpty()) {
             List<XYTile> destAnts = new ArrayList<>();
             getDestAnts(myMove, destAnts, true);
@@ -173,8 +174,8 @@ public class Minimax {
             if (count.get() < BRANCH_THRESHOLD) {
                 XYTile a = myAnts.get(0);
                 List<XYTile> nma = new ArrayList<>(myAnts.subList(1, myAnts.size()));
-                return generateMoves(a, myMove, true, myWarZone).parallelStream().flatMap(m -> {
-                    return max(nma, oppAnts, m, myWarZone, map, count).stream();
+                return generateMoves(a, myMove, true, myWarZone, warCenter).parallelStream().flatMap(m -> {
+                    return max(nma, oppAnts, m, myWarZone, map, warCenter, count).stream();
                 }).collect(Collectors.toList());
             } else {
                 LOGGER.info("combat branches overwhelm max");
@@ -191,7 +192,7 @@ public class Minimax {
             if (count.get() < BRANCH_THRESHOLD) {
                 XYTile a = oppAnts.get(0);
                 List<XYTile> noa = new ArrayList<>(oppAnts.subList(1, oppAnts.size()));
-                return generateMoves(a, myMove, false, oppWarZone).parallelStream().flatMap(m -> {
+                return generateMoves(a, myMove, false, oppWarZone, null).parallelStream().flatMap(m -> {
                     return min(noa, m, oppWarZone, count).stream();
                 }).collect(Collectors.toList());
             } else {
@@ -201,7 +202,7 @@ public class Minimax {
         }
     }
 
-    private static List<MMMove> generateMoves(XYTile tile, MMMove lastMove, boolean max, Set<XYTile> warZone) {
+    private static List<MMMove> generateMoves(XYTile tile, MMMove lastMove, boolean max, Set<XYTile> warZone, XYTile center) {
         List<MMMove> moves = new ArrayList<>(tile.getNbDir().size() + 1);
 
         boolean notOcc = true;
@@ -213,13 +214,15 @@ public class Minimax {
 
         boolean inWarZone = warZone.contains(tile);
 
+        int warDist = max ? Utils.distManh(tile.getX(), tile.getY(), center.getX(), center.getY(), XYTile.getXt(), XYTile.getYt()) : 0;
+
         tile.getNbDir().parallelStream().filter(nbt -> {
             boolean s1 = lastMove == null || (!lastMove.destinations.contains(nbt.getTile()) &&
                     !lastMove.moves.contains(new XYMove(nbt.getTile(), tile)));
 //            LOGGER.info("combat level 1 filter: {}", tile);
             return s1;
         }).filter(nbt -> {
-            return max ? maxPrune(nbt, lastMove, warZone, inWarZone) : minPrune(nbt, lastMove, warZone, inWarZone);
+            return max ? maxPrune(nbt, lastMove, warZone, inWarZone, center, warDist) : minPrune(nbt, lastMove, warZone, inWarZone);
         }).forEach(nbt -> {
             XYMove xyMove = new XYMove(tile, nbt.getTile());
             MMMove move = new MMMove(xyMove, nbt.getDir(), lastMove, max);
@@ -249,13 +252,14 @@ public class Minimax {
         Set<XYTile> underSiege = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
         int dist = SIEGE_DIST2;
+        int size = Utils.searchSize(dist);
 
         ants.parallelStream().forEach(tile -> {
             List<XYTile> centers = new ArrayList<>(tile.getNbDir().size() + 1);
             tile.getNbDir().stream().map(nbt -> nbt.getTile()).forEach(t -> {centers.add(t);});
             centers.add(tile);
 
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(25);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
 
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
@@ -278,9 +282,10 @@ public class Minimax {
         return underSiege;
     }
 
-    private static boolean maxPrune(XYTileMv nbt, MMMove move, Set<XYTile> warZone, boolean currentInZone) {
+    private static boolean maxPrune(XYTileMv nbt, MMMove move, Set<XYTile> warZone, boolean currentInZone, XYTile center, int dist) {
         if (!currentInZone) {
-            boolean inWarZone = warZone.contains(nbt.getTile());
+            boolean inWarZone = warZone.contains(nbt.getTile())
+                    || Utils.distManh(nbt.getTile().getX(), nbt.getTile().getY(), center.getX(), center.getY(), XYTile.getXt(), XYTile.getYt()) < dist;
             if (!inWarZone) {
                 LOGGER.info("combat filter not in max war zone: {}", nbt.getTile());
             }

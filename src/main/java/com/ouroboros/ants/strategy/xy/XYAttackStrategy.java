@@ -10,6 +10,7 @@ import com.ouroboros.ants.utils.Move;
 import com.ouroboros.ants.utils.Utils;
 import com.ouroboros.ants.utils.xy.Minimax;
 import com.ouroboros.ants.utils.xy.TreeSearch;
+import com.ouroboros.ants.utils.xy.XYUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,8 +35,8 @@ public class XYAttackStrategy {
     private static final int ATTACK_DIST = 3;
     private static final int HILL_RAID_DIST = 10;
     private static final int EXPLORE_DIST = 10;
-    private static final int ENEMY_DIST = 5;
-    private static final int COMBAT_DIST = 5;
+    private static final int ENEMY_DIST = 7;
+    private static final int COMBAT_DIST = 3;
     private static final int ANTI_DIST = 5;
     private static final int ALLY_DIST = 12;
 
@@ -291,7 +292,7 @@ public class XYAttackStrategy {
 
         Set<XYTile> cTargets = Collections.newSetFromMap(new ConcurrentHashMap<>(toFight.size()));
         toFight.parallelStream().forEachOrdered(t -> {
-            XYTile ct = findCenter(myAnts.get(t));
+            XYTile ct = XYUtils.findCenter(myAnts.get(t));
             if (ct != null) {
                 cTargets.add(ct);
             }
@@ -373,7 +374,7 @@ public class XYAttackStrategy {
             return !combMyAnts.get(t).isEmpty() && !combOppAnts.get(t).isEmpty();
         }).collect(Collectors.toList());
 
-        boolean aggressive = myIncluded.size() - oppIncluded.size() > 10;
+        boolean aggressive = myIncluded.size() - oppIncluded.size() > 5;
 
         fTargets.parallelStream().forEachOrdered(t -> {
             Set<XYTile> ma = combMyAnts.get(t);
@@ -422,22 +423,5 @@ public class XYAttackStrategy {
         });
     }
 
-    private static XYTile findCenter(Collection<XYTile> tiles) {
-        if (tiles.isEmpty()) {
-            return null;
-        } else if (tiles.size() == 1) {
-            XYTile center = tiles.iterator().next();
-            LOGGER.info("calculated center: {}", center);
-            return center;
-        } else {
-            XYTile tile0 = tiles.iterator().next();
-            int x0 = tile0.getX();
-            int y0 = tile0.getY();
-            int xc = tiles.parallelStream().mapToInt(t -> Utils.dnc(t.getX(), x0, XYTile.getXt())).sum() / tiles.size();
-            int yc = tiles.parallelStream().mapToInt(t -> Utils.dnc(t.getY(), y0, XYTile.getYt())).sum() / tiles.size();
-            XYTile center = XYTile.getTile(Utils.nc(xc, XYTile.getXt()), Utils.nc(yc, XYTile.getYt()));
-            LOGGER.info("calculated center: {}", center);
-            return center;
-        }
-    }
+
 }

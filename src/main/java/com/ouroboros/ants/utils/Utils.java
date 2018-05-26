@@ -72,4 +72,8 @@ public class Utils {
     public static <T, U> T getFirstArg(T arg1, U arg2) {
         return arg1;
     }
+
+    public static int searchSize(int k) {
+        return 2 * k + 2 * k * k + 1;
+    }
 }
