@@ -38,11 +38,11 @@ public class XYAttackStrategy {
     private static final int ENEMY_DIST = 4;
     private static final int ALLY_DIST = 3;
     private static final int MAX_FIGHT = 10;
-    private static final int MAX_ALLY = 5;
-    private static final int SUB_DIST = 10;
+    private static final int MAX_ALLY = 7;
+    private static final int SUB_DIST = 15;
 
     private static final int THRESHOLD = 5;
-    private static final double NOT_FIGHT = 2.5d;
+    private static final int NOT_FIGHT = 3;
 
 
     static void calcOppInfArea(List<Tile> oppAnts) {
@@ -410,32 +410,35 @@ public class XYAttackStrategy {
 
         toFight.parallelStream().forEach(tile -> {
             int diff = enemyAnts.get(tile).size() - allyAnts.get(tile).size();
-            diff = diff < 0 ? 2 : (diff + 3);
 
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(sSize);
-            searched.put(tile, -1);
-            TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
-                    (t, l) -> {
-                        Integer lv = searched.get(t.getTile());
-                        if (lv == null || l < lv) {
-                            searched.put(t.getTile(), l);
-                            return !t.getTile().getStatus().isTaboo();
-                        }
+            if (diff > -3) {
+                diff = diff < 0 ? 2 : (diff + 3);
 
-                        return false;
-                    },
-                    (l, c) -> l < sDist && c.get() > 0,
-                    (t, c) -> {
-                        if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
-                            if (op.apply(t, move)) {
-                                LOGGER.info("combat reinforcement: {} {}", tile, t);
-                                c.getAndDecrement();
+                Map<XYTile, Integer> searched = new ConcurrentHashMap<>(sSize);
+                searched.put(tile, -1);
+                TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
+                        (t, l) -> {
+                            Integer lv = searched.get(t.getTile());
+                            if (lv == null || l < lv) {
+                                searched.put(t.getTile(), l);
+                                return !t.getTile().getStatus().isTaboo();
                             }
-                        }
-                    },
-                    new AtomicInteger(diff),
-                    0
-            );
+
+                            return false;
+                        },
+                        (l, c) -> l < sDist && c.get() > 0,
+                        (t, c) -> {
+                            if (t.getTile().getStatus().isMyAnt() && !t.getTile().getStatus().getMoved().getAndSet(true)) {
+                                if (op.apply(t, move)) {
+                                    LOGGER.info("combat reinforcement: {} {}", tile, t);
+                                    c.getAndDecrement();
+                                }
+                            }
+                        },
+                        new AtomicInteger(diff),
+                        0
+                );
+            }
         });
     }
 
