@@ -26,8 +26,8 @@ public class Minimax {
     private static final Logger LOGGER = LoggerFactory.getLogger(Minimax.class);
 
     private static final int SIEGE_DIST2 = 5;
-    private static final int BRANCH_THRESHOLD_MAX = 4000;
-    private static final int BRANCH_THRESHOLD_REDUCED = 2500;
+    private static final int BRANCH_THRESHOLD_MAX = 4500;
+    private static final int BRANCH_THRESHOLD_REDUCED = 2750;
     private static final int BRANCH_THRESHOLD_MIN = 1000;
     private static final int THRESHOLD = 5;
 

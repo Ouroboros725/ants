@@ -35,14 +35,17 @@ public class XYAttackStrategy {
     private static final int ATTACK_DIST = 3;
     private static final int HILL_RAID_DIST = 10;
     private static final int EXPLORE_DIST = 10;
+
     private static final int ENEMY_DIST = 4;
     private static final int ALLY_DIST = 3;
+
     private static final int MAX_FIGHT = 10;
-    private static final int MAX_ALLY = 7;
+    private static final int MAX_ALLY = 10;
     private static final int SUB_DIST = 15;
 
-    private static final int THRESHOLD = 5;
+    private static final int FIGHT_PRESS_THRE = 5;
     private static final int NOT_FIGHT = 3;
+    private static final int HILL_ATTACK_DIST = 12;
 
 
     static void calcOppInfArea(List<Tile> oppAnts) {
@@ -232,7 +235,7 @@ public class XYAttackStrategy {
         }
     }
 
-    public static void attackEnemy(List<Tile> myAnts, BiFunction<XYTileMv,
+    public static void attackEnemy(List<Tile> myAnts, List<Tile> myHills, BiFunction<XYTileMv,
             Consumer<Move>, Boolean> op, Consumer<Move> move, AtomicBoolean terminator) {
         int lDist = ALLY_DIST;
         int lSize = Utils.searchSize(lDist);
@@ -298,10 +301,20 @@ public class XYAttackStrategy {
                     0);
         });
 
+
+        myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
+            int enemyCnt = tile.getStatus().getEnemyCnt();
+            if (enemyCnt > 0) {
+                int hillDist = myHills.parallelStream().map(XYTile::getTile).mapToInt(h -> Utils.distManh(tile.getX(), tile.getY(), h.getX(), h.getY(), XYTile.getXt(), XYTile.getYt())).min().orElseGet(() -> 0);
+                int inf = (hillDist <= HILL_ATTACK_DIST && hillDist > 0) ? (enemyCnt + HILL_ATTACK_DIST - hillDist) : enemyCnt;
+                tile.getStatus().setAttackInf(inf);
+            }
+        });
+
         List<XYTile> toFight = myAnts.parallelStream().map(XYTile::getTile)
                 .filter(t -> t.getStatus().getEnemyCnt() >= 1 && !allyAnts.get(t).isEmpty())
                 .sorted((t1, t2) -> {
-                    return t2.getStatus().getEnemyCnt() - t1.getStatus().getEnemyCnt();
+                    return t2.getStatus().getAttackInf() - t1.getStatus().getAttackInf();
                 }).limit(MAX_FIGHT).collect(Collectors.toList());
 
         Set<XYTile> picked = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap());
@@ -332,6 +345,14 @@ public class XYAttackStrategy {
 
         toFight.removeAll(dupAnts);
 
+        toFight.parallelStream().forEach(tile -> {
+            Set<XYTile> ma = allyAnts.get(tile);
+            if (ma.size() > MAX_ALLY) {
+                List<XYTile> nma = ma.parallelStream().filter(al -> Utils.distManh(tile.getX(), tile.getY(), al.getX(), al.getY(), XYTile.getXt(), XYTile.getYt()) > 4).collect(Collectors.toList());
+                ma.removeAll(nma);
+            }
+        });
+
         if (!toFight.isEmpty()) {
             for (int i = 0; i < toFight.size(); i++) {
                 LOGGER.info("enemies to hunt 2: {}", i);
@@ -345,7 +366,7 @@ public class XYAttackStrategy {
         AtomicInteger lBat = new AtomicInteger(0);
 
         toFight.parallelStream().forEach(t -> {
-            if ((allyAnts.get(t).size() + enemyAnts.get(t).size()) <= THRESHOLD) {
+            if ((allyAnts.get(t).size() + enemyAnts.get(t).size()) <= FIGHT_PRESS_THRE) {
                 sBat.incrementAndGet();
             } else {
                 lBat.incrementAndGet();
@@ -366,7 +387,7 @@ public class XYAttackStrategy {
                 LOGGER.info("invalid combat: {}", tile);
             }
 
-            if (oa.size() < NOT_FIGHT && ma.size() >= NOT_FIGHT * 2) {
+            if (oa.size() < NOT_FIGHT && ma.size() >= NOT_FIGHT + oa.size()) {
                 oa.parallelStream().forEach(ot -> {
                     Map<XYTile, Integer> searched = new ConcurrentHashMap<>(sgSize);
                     searched.put(ot, -1);
@@ -409,9 +430,12 @@ public class XYAttackStrategy {
         int sSize = Utils.searchSize(sDist);
 
         toFight.parallelStream().forEach(tile -> {
-            int diff = enemyAnts.get(tile).size() - allyAnts.get(tile).size();
+            Set<XYTile> ma = allyAnts.get(tile);
+            Set<XYTile> oa = enemyAnts.get(tile);
 
-            if (diff > -3) {
+            int diff = oa.size() - ma.size();
+
+            if (diff > -3 && ma.size() <= MAX_ALLY) {
                 diff = diff < 0 ? 2 : (diff + 3);
 
                 Map<XYTile, Integer> searched = new ConcurrentHashMap<>(sSize);

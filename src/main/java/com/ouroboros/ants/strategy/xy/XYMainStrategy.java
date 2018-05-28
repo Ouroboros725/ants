@@ -87,7 +87,7 @@ public class XYMainStrategy extends AbstractStrategy {
         execute(() -> XYAttackStrategy.attackHills(turnInfo.oppHills, turnInfo.myAnts.size(), MOVE, output), terminator);
         execute(() -> XYDefenseStrategy.havFood(turnInfo.food, MOVE, output), terminator);
         execute(() -> XYDefenseStrategy.defendHill(turnInfo.myHills, turnInfo.myAnts.size(), MOVE, output), terminator);
-        execute(() -> XYAttackStrategy.attackEnemy(turnInfo.myAnts, MOVE, output, terminator), terminator);
+        execute(() -> XYAttackStrategy.attackEnemy(turnInfo.myAnts, turnInfo.myHills, MOVE, output, terminator), terminator);
         execute(() -> XYAttackStrategy.explore(turnInfo.myAnts, MOVE, output), terminator);
 
 

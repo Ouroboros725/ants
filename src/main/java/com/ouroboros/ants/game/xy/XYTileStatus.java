@@ -14,6 +14,7 @@ public class XYTileStatus {
     private AtomicInteger tabooDist;
     private AtomicBoolean moved;
     private AtomicInteger enemyCnt;
+    private AtomicInteger attackInf;
 
     XYTileStatus() {
         myAnt = new AtomicBoolean();
@@ -22,6 +23,7 @@ public class XYTileStatus {
         tabooDist = new AtomicInteger();
         moved = new AtomicBoolean();
         enemyCnt = new AtomicInteger();
+        attackInf = new AtomicInteger();
     }
 
     void reset() {
@@ -31,6 +33,7 @@ public class XYTileStatus {
         tabooDist.set(0);
         moved.set(false);
         enemyCnt.set(0);
+        attackInf.set(0);
     }
 
     public boolean isMyAnt() {
@@ -83,5 +86,13 @@ public class XYTileStatus {
 
     public int incEnemyCnt() {
         return enemyCnt.incrementAndGet();
+    }
+
+    public int getAttackInf() {
+        return attackInf.get();
+    }
+
+    public void setAttackInf(int attackInf) {
+        this.attackInf.set(attackInf);
     }
 }
