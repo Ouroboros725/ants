@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
@@ -62,7 +63,7 @@ public class XYMainStrategy extends AbstractStrategy {
     private int pCnt;
 
     @Override
-    protected void setupStrategy(Global gameStates) {
+    protected void setupStrategy(Global gameStates, AtomicBoolean terminator) {
         xt = gameStates.xt;
         yt = gameStates.yt;
         cnt = xt * yt;
@@ -75,21 +76,29 @@ public class XYMainStrategy extends AbstractStrategy {
     }
 
     @Override
-    protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output) {
-        XYTile.resetStatus();
+    protected void executeStrategy(Turn turnInfo, Global gameStates, Consumer<Move> output, AtomicBoolean terminator) {
+        execute(() -> XYTile.resetStatus(), terminator);
 
-        XYTurnUpdate.updateWater(turnInfo.water);
-        XYTurnUpdate.updateMyAnts(turnInfo.myAnts);
-        XYTurnUpdate.updateOppAnts(turnInfo.oppAnts);
+        execute(() -> XYTurnUpdate.updateWater(turnInfo.water), terminator);
+        execute(() -> XYTurnUpdate.updateMyAnts(turnInfo.myAnts), terminator);
+        execute(() -> XYTurnUpdate.updateOppAnts(turnInfo.oppAnts), terminator);
 
-        XYAttackStrategy.calcOppInfArea(turnInfo.oppAnts);
-        XYAttackStrategy.attackHills(turnInfo.oppHills, turnInfo.myAnts.size(), MOVE, output);
-        XYDefenseStrategy.havFood(turnInfo.food, MOVE, output);
-        XYAttackStrategy.attackEnemy(turnInfo.oppAnts, MOVE, output);
-        XYDefenseStrategy.defendHill(turnInfo.myHills, turnInfo.myAnts.size(), MOVE, output);
-        XYAttackStrategy.explore(turnInfo.myAnts, MOVE, output);
+        execute(() -> XYAttackStrategy.calcOppInfArea(turnInfo.oppAnts), terminator);
+        execute(() -> XYAttackStrategy.attackHills(turnInfo.oppHills, turnInfo.myAnts.size(), MOVE, output), terminator);
+        execute(() -> XYDefenseStrategy.havFood(turnInfo.food, MOVE, output), terminator);
+        execute(() -> XYAttackStrategy.attackEnemy(turnInfo.oppAnts, MOVE, output, terminator), terminator);
+        execute(() -> XYDefenseStrategy.defendHill(turnInfo.myHills, turnInfo.myAnts.size(), MOVE, output), terminator);
+        execute(() -> XYAttackStrategy.explore(turnInfo.myAnts, MOVE, output), terminator);
 
 
+    }
+
+    private void execute(Runnable runnable, AtomicBoolean terminator) {
+        if (!terminator.get()) {
+            runnable.run();
+        } else {
+            LOGGER.info("xy unfinished");
+        }
     }
 
 

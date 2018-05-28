@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
@@ -64,17 +65,18 @@ public class XYAttackStrategy {
             int attNum = attPHill < 5 ? attPHill : 5;
 
             int dist = HILL_RAID_DIST;
+            int size = Utils.searchSize(dist);
 
             hills.parallelStream().map(XYTile::getTile)
                     .forEach(h -> {
-                        Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+                        Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
                         searched.put(h, -1);
                         TreeSearch.breadthFirstMultiSearch(h.getNbDir(),
                                 (t, l) -> {
                                     Integer lv = searched.get(t.getTile());
                                     if (lv == null || l < lv) {
                                         searched.put(t.getTile(), l);
-                                        return true;
+                                        return !t.getTile().getStatus().isTaboo();
                                     }
 
                                     return false;
@@ -98,6 +100,7 @@ public class XYAttackStrategy {
         XYTile.updateVisitInfluence();
 
         int dist = EXPLORE_DIST;
+        int size = Utils.searchSize(dist);
 
         {
             exploreTaskLink.entrySet().removeIf(entry -> {
@@ -115,7 +118,7 @@ public class XYAttackStrategy {
 
         Set<XYTile> updated = Collections.newSetFromMap(new ConcurrentHashMap<>());
         myAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
             TreeSearch.depthFirstFill(tile,
                     (t, l) -> {
                         Integer lv = searched.get(t);
@@ -147,7 +150,7 @@ public class XYAttackStrategy {
 
             List<XYTileMvAggWt> wList = tile.getNbDir().stream().map(XYTileMvAggWt::new).collect(Collectors.toList());
 
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
             wList.parallelStream().filter(nbt -> !nbt.getMove().getTile().getStatus().isTaboo() && !nbt.getMove().getTile().getStatus().isMyAnt())
                     .forEach(nbt -> TreeSearch.depthFirstFill(nbt.getMove().getTile(),
                             (t, l) -> {
@@ -226,14 +229,15 @@ public class XYAttackStrategy {
         }
     }
 
-    public static void attackEnemy(List<Tile> oppAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move) {
+    public static void attackEnemy(List<Tile> oppAnts, BiFunction<XYTileMv, Consumer<Move>, Boolean> op, Consumer<Move> move, AtomicBoolean terminator) {
         int dist = ENEMY_DIST;
+        int size = Utils.searchSize(dist);
 
         Map<XYTile, Set<XYTile>> myAnts = new ConcurrentHashMap<>();
         Map<XYTile, Set<XYTile>> enemyAnts = new ConcurrentHashMap<>();
 
         oppAnts.parallelStream().map(XYTile::getTile).forEach(tile -> {
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(41);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(size);
             myAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
             enemyAnts.put(tile, Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>()));
 
@@ -299,12 +303,13 @@ public class XYAttackStrategy {
         });
 
         int cDist = COMBAT_DIST;
+        int cSize = Utils.searchSize(cDist);
 
         Set<XYTile> myIncluded = Collections.newSetFromMap(new ConcurrentHashMap<>());
         Map<XYTile, Set<XYTile>> combMyAnts = new ConcurrentHashMap<>();
 
         cTargets.parallelStream().forEachOrdered(tile -> {
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(85);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(cSize);
 
             Set<XYTile> allies = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>());
             combMyAnts.put(tile, allies);
@@ -332,13 +337,14 @@ public class XYAttackStrategy {
         Map<XYTile, Set<XYTile>> combOppAnts = new ConcurrentHashMap<>();
 
         int eDist = ANTI_DIST;
+        int eSize = Utils.searchSize(eDist);
 
         cTargets.parallelStream().forEach(tile -> {
             Set<XYTile> mcb = combMyAnts.get(tile);
             Set<XYTile> myEnemies = Collections.<XYTile>newSetFromMap(new ConcurrentHashMap<>());
             combOppAnts.put(tile, myEnemies);
 
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(61);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(eSize);
 
             mcb.parallelStream().forEach(at -> {
                 TreeSearch.depthFirstFill(at,
@@ -384,26 +390,31 @@ public class XYAttackStrategy {
                 LOGGER.info("invalid combat: {}", t);
             }
 
-            if (!ma.isEmpty() && !oa.isEmpty()) {
-                Minimax.minimax(ma, oa, aggressive)
+            if (!ma.isEmpty() && !oa.isEmpty() && !terminator.get()) {
+                Minimax.minimax(ma, oa, aggressive, terminator)
                         .parallelStream().forEach(mv -> op.apply(mv, move));
             }
         });
 
+        if (terminator.get()) {
+            return;
+        }
+
         int aDist = ALLY_DIST;
+        int aSize = Utils.searchSize(aDist);
 
         fTargets.parallelStream().forEach(tile -> {
             int diff = combOppAnts.get(tile).size() - combMyAnts.get(tile).size();
             diff = diff < 0 ? 1 : (diff + 1);
 
-            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(361);
+            Map<XYTile, Integer> searched = new ConcurrentHashMap<>(aSize);
             searched.put(tile, -1);
             TreeSearch.breadthFirstMultiSearch(tile.getNbDir(),
                 (t, l) -> {
                     Integer lv = searched.get(t.getTile());
                     if (lv == null || l < lv) {
                         searched.put(t.getTile(), l);
-                        return true;
+                        return !t.getTile().getStatus().isTaboo();
                     }
 
                     return false;

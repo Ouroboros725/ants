@@ -163,7 +163,7 @@ public class XYDefenseStrategy {
                         Integer lv = searched.get(t.getTile());
                         if (lv == null || l < lv) {
                             searched.put(t.getTile(), l);
-                            return true;
+                            return !t.getTile().getStatus().isTaboo();
                         }
 
                         return false;
@@ -243,7 +243,7 @@ public class XYDefenseStrategy {
                     }
                 });
 
-                kSpot.entrySet().parallelStream().sorted(Map.Entry.comparingByValue()).map(Map.Entry::getKey).forEachOrdered(tile -> {
+                kSpot.entrySet().stream().sorted(Map.Entry.comparingByValue()).map(Map.Entry::getKey).forEachOrdered(tile -> {
                     Map<XYTile, Integer> searched = new ConcurrentHashMap<>();
                     searched.put(tile, -1);
 

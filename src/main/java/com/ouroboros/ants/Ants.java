@@ -19,6 +19,12 @@ public class Ants {
 
     public static final ExecutorService strategyExecutor = Executors.newFixedThreadPool(5, r -> {
         Thread t = new Thread(r);
+        t.setPriority(Thread.MAX_PRIORITY - 2);
+        return t;
+    });
+
+    public static final ExecutorService watchDogExecutor = Executors.newFixedThreadPool(5, r -> {
+        Thread t = new Thread(r);
         t.setPriority(Thread.MAX_PRIORITY);
         return t;
     });
