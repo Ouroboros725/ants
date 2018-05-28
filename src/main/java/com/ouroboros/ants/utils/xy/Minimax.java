@@ -27,8 +27,8 @@ public class Minimax {
 
     private static final int SIEGE_DIST2 = 5;
     private static final int BRANCH_THRESHOLD_MAX = 4500;
-    private static final int BRANCH_THRESHOLD_REDUCED = 2750;
-    private static final int BRANCH_THRESHOLD_MIN = 1000;
+    private static final int BRANCH_THRESHOLD_REDUCED = 3000;
+    private static final int BRANCH_THRESHOLD_MIN = 1500;
     private static final int THRESHOLD = 5;
 
     private static class XYMove {
@@ -311,7 +311,7 @@ public class Minimax {
         if (!currentInZone) {
             boolean result = warZone.contains(nbt.getTile())
                     || (Utils.distManh(nbt.getTile().getX(), nbt.getTile().getY(), center.getX(), center.getY(), XYTile.getXt(), XYTile.getYt()) < dist
-                    && ThreadLocalRandom.current().nextInt(3) == 0);
+                    && ThreadLocalRandom.current().nextInt(3) > 0);
             if (!result) {
                 LOGGER.info("combat filter not in max war zone: {}", nbt.getTile());
             }

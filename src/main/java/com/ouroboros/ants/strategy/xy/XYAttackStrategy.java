@@ -40,11 +40,11 @@ public class XYAttackStrategy {
     private static final int ALLY_DIST = 3;
 
     private static final int MAX_FIGHT = 10;
-    private static final int MAX_ALLY = 10;
+    private static final int MAX_ALLY = 50;
     private static final int SUB_DIST = 15;
 
-    private static final int FIGHT_PRESS_THRE = 5;
-    private static final int NOT_FIGHT = 3;
+    private static final int FIGHT_PRESS_THRE = 7;
+    private static final int NOT_FIGHT = 2;
     private static final int HILL_ATTACK_DIST = 12;
 
 
@@ -306,7 +306,7 @@ public class XYAttackStrategy {
             int enemyCnt = tile.getStatus().getEnemyCnt();
             if (enemyCnt > 0) {
                 int hillDist = myHills.parallelStream().map(XYTile::getTile).mapToInt(h -> Utils.distManh(tile.getX(), tile.getY(), h.getX(), h.getY(), XYTile.getXt(), XYTile.getYt())).min().orElseGet(() -> 0);
-                int inf = (hillDist <= HILL_ATTACK_DIST && hillDist > 0) ? (enemyCnt + HILL_ATTACK_DIST - hillDist) : enemyCnt;
+                int inf = (hillDist <= HILL_ATTACK_DIST && hillDist > 0) ? enemyCnt + (HILL_ATTACK_DIST - hillDist) : enemyCnt;
                 tile.getStatus().setAttackInf(inf);
             }
         });
@@ -345,13 +345,13 @@ public class XYAttackStrategy {
 
         toFight.removeAll(dupAnts);
 
-        toFight.parallelStream().forEach(tile -> {
-            Set<XYTile> ma = allyAnts.get(tile);
-            if (ma.size() > MAX_ALLY) {
-                List<XYTile> nma = ma.parallelStream().filter(al -> Utils.distManh(tile.getX(), tile.getY(), al.getX(), al.getY(), XYTile.getXt(), XYTile.getYt()) > 4).collect(Collectors.toList());
-                ma.removeAll(nma);
-            }
-        });
+//        toFight.parallelStream().forEach(tile -> {
+//            Set<XYTile> ma = allyAnts.get(tile);
+//            if (ma.size() > MAX_ALLY) {
+//                List<XYTile> nma = ma.parallelStream().filter(al -> Utils.distManh(tile.getX(), tile.getY(), al.getX(), al.getY(), XYTile.getXt(), XYTile.getYt()) > 4).collect(Collectors.toList());
+//                ma.removeAll(nma);
+//            }
+//        });
 
         if (!toFight.isEmpty()) {
             for (int i = 0; i < toFight.size(); i++) {
@@ -387,7 +387,7 @@ public class XYAttackStrategy {
                 LOGGER.info("invalid combat: {}", tile);
             }
 
-            if (oa.size() < NOT_FIGHT && ma.size() >= NOT_FIGHT + oa.size()) {
+            if (oa.size() < NOT_FIGHT && (ma.size() >= NOT_FIGHT * 2)) {
                 oa.parallelStream().forEach(ot -> {
                     Map<XYTile, Integer> searched = new ConcurrentHashMap<>(sgSize);
                     searched.put(ot, -1);
@@ -435,7 +435,7 @@ public class XYAttackStrategy {
 
             int diff = oa.size() - ma.size();
 
-            if (diff > -3 && ma.size() <= MAX_ALLY) {
+//            if (diff > -3 && (ma.size() <= MAX_ALLY + 3)) {
                 diff = diff < 0 ? 2 : (diff + 3);
 
                 Map<XYTile, Integer> searched = new ConcurrentHashMap<>(sSize);
@@ -462,7 +462,7 @@ public class XYAttackStrategy {
                         new AtomicInteger(diff),
                         0
                 );
-            }
+//            }
         });
     }
 
