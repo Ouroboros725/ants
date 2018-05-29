@@ -383,9 +383,9 @@ public class XYAttackStrategy {
             Set<XYTile> ma = allyAnts.get(tile);
             Set<XYTile> oa = enemyAnts.get(tile);
 
-            if (ma.isEmpty()) {
-                LOGGER.info("invalid combat: {}", tile);
-            }
+//            if (ma.isEmpty()) {
+//                LOGGER.info("invalid combat: {}", tile);
+//            }
 
             if (oa.size() < NOT_FIGHT && (ma.size() >= NOT_FIGHT * 2)) {
                 oa.parallelStream().forEach(ot -> {

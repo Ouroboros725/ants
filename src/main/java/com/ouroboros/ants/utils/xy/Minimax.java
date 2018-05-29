@@ -198,7 +198,7 @@ public class Minimax {
                     return max(nma, oppAnts, m, myWarZone, map, warCenter, count, threshold, terminator).stream();
                 }).collect(Collectors.toList());
             } else {
-                LOGGER.info("combat branches overwhelm max");
+//                LOGGER.info("combat branches overwhelm max");
                 return Collections.emptyList();
             }
         }
@@ -221,7 +221,7 @@ public class Minimax {
                     return min(noa, m, oppWarZone, count, threshold, terminator).stream();
                 }).collect(Collectors.toList());
             } else {
-                LOGGER.info("combat branches overwhelm min");
+//                LOGGER.info("combat branches overwhelm min");
                 return Collections.emptyList();
             }
         }
@@ -266,9 +266,9 @@ public class Minimax {
             });
         }
 
-        if (moves.isEmpty()) {
-            LOGGER.info("combat no moves: {}", tile);
-        }
+//        if (moves.isEmpty()) {
+//            LOGGER.info("combat no moves: {}", tile);
+//        }
 
         return moves;
     }
@@ -312,9 +312,9 @@ public class Minimax {
             boolean result = warZone.contains(nbt.getTile())
                     || (Utils.distManh(nbt.getTile().getX(), nbt.getTile().getY(), center.getX(), center.getY(), XYTile.getXt(), XYTile.getYt()) < dist
                     && ThreadLocalRandom.current().nextInt(3) > 0);
-            if (!result) {
-                LOGGER.info("combat filter not in max war zone: {}", nbt.getTile());
-            }
+//            if (!result) {
+//                LOGGER.info("combat filter not in max war zone: {}", nbt.getTile());
+//            }
             return result;
         }
 
@@ -324,9 +324,9 @@ public class Minimax {
     private static boolean minPrune(XYTileMv nbt, MMMove move, Set<XYTile> warZone, boolean currentInZone) {
         if (!currentInZone) {
             boolean inWarZone = warZone.contains(nbt.getTile());
-            if (!inWarZone) {
-                LOGGER.info("combat filter not in min war zone: {}", nbt.getTile());
-            }
+//            if (!inWarZone) {
+//                LOGGER.info("combat filter not in min war zone: {}", nbt.getTile());
+//            }
             return inWarZone;
         }
 
@@ -345,7 +345,7 @@ public class Minimax {
         getDestAnts(myMove, oppAnts, false);
 
         if (oppAnts.isEmpty()) {
-            LOGGER.info("combat branch invalid: {}", myMove);
+//            LOGGER.info("combat branch invalid: {}", myMove);
             return;
         }
 
@@ -437,19 +437,19 @@ public class Minimax {
                             if (minDistList.size() > 1) {
                                 int index = ThreadLocalRandom.current().nextInt(minDistList.size());
                                 convertMoves(minDistList.get(index).getKey(), moves);
-                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(index).getKey(), minDistList.get(index).getValue());
+//                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(index).getKey(), minDistList.get(index).getValue());
                             } else if (minDistList.size() == 1) {
                                 convertMoves(minDistList.get(0).getKey(), moves);
-                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(0).getKey(), minDistList.get(0).getValue());
+//                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(0).getKey(), minDistList.get(0).getValue());
                             }
                         } else if (minMyKilledList.size() == 1) {
                             convertMoves(minMyKilledList.get(0).getKey(), moves);
-                            LOGGER.info("combat evaluation max my: {} {} {}", aggressive, minMyKilledList.get(0).getKey(), minMyKilledList.get(0).getValue());
+//                            LOGGER.info("combat evaluation max my: {} {} {}", aggressive, minMyKilledList.get(0).getKey(), minMyKilledList.get(0).getValue());
                         }
 
                     } else if (maxOppKilledList.size() == 1) {
                         convertMoves(maxOppKilledList.get(0).getKey(), moves);
-                        LOGGER.info("combat evaluation max opp: {} {} {}", aggressive, maxOppKilledList.get(0).getKey(), maxOppKilledList.get(0).getValue());
+//                        LOGGER.info("combat evaluation max opp: {} {} {}", aggressive, maxOppKilledList.get(0).getKey(), maxOppKilledList.get(0).getValue());
                     }
 
                 } else {
@@ -468,28 +468,28 @@ public class Minimax {
                             if (minDistList.size() > 1) {
                                 int index = ThreadLocalRandom.current().nextInt(minDistList.size());
                                 convertMoves(minDistList.get(index).getKey(), moves);
-                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(index).getKey(), minDistList.get(index).getValue());
+//                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(index).getKey(), minDistList.get(index).getValue());
                             } else if (minDistList.size() == 1) {
                                 convertMoves(minDistList.get(0).getKey(), moves);
-                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(0).getKey(), minDistList.get(0).getValue());
+//                                LOGGER.info("combat evaluation max dist: {} {} {}", aggressive, minDistList.get(0).getKey(), minDistList.get(0).getValue());
                             }
                         } else if (maxOppKilledList.size() == 1) {
                             convertMoves(maxOppKilledList.get(0).getKey(), moves);
-                            LOGGER.info("combat evaluation max opp: {} {} {}", aggressive, maxOppKilledList.get(0).getKey(), maxOppKilledList.get(0).getValue());
+//                            LOGGER.info("combat evaluation max opp: {} {} {}", aggressive, maxOppKilledList.get(0).getKey(), maxOppKilledList.get(0).getValue());
                         }
 
                     } else if (minMyKilledList.size() == 1) {
                         convertMoves(minMyKilledList.get(0).getKey(), moves);
-                        LOGGER.info("combat evaluation max my: {} {} {}", aggressive, minMyKilledList.get(0).getKey(), minMyKilledList.get(0).getValue());
+//                        LOGGER.info("combat evaluation max my: {} {} {}", aggressive, minMyKilledList.get(0).getKey(), minMyKilledList.get(0).getValue());
                     }
                 }
             } else if (maxKilledList.size() == 1) {
                 convertMoves(maxKilledList.get(0).getKey(), moves);
-                LOGGER.info("combat evaluation max diff: {} {} {}", aggressive, maxKilledList.get(0).getKey(), maxKilledList.get(0).getValue());
+//                LOGGER.info("combat evaluation max diff: {} {} {}", aggressive, maxKilledList.get(0).getKey(), maxKilledList.get(0).getValue());
             }
         } else if (map.size() == 1) {
             convertMoves(map.entrySet().iterator().next().getKey(), moves);
-            LOGGER.info("combat evaluation single: {} {} {}", aggressive, map.entrySet().iterator().next().getKey(), map.entrySet().iterator().next().getValue());
+//            LOGGER.info("combat evaluation single: {} {} {}", aggressive, map.entrySet().iterator().next().getKey(), map.entrySet().iterator().next().getValue());
         }
 
         return moves;
